@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Room Jobs</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#233047">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow" id="siteEyebrow">Facilities</div>
+    <h1 id="siteTitle">Room Jobs</h1>
+    <div class="sub" id="summaryLine">Loading…</div>
+  </div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+</header>
+
+<div class="controls">
+  <div class="search-row">
+    <input id="searchInput" type="text" placeholder="Filter by room number…">
+    <button id="showAllBtn" class="show-all-btn">Show all</button>
+  </div>
+  <div class="chips" id="statusChips"></div>
+</div>
+
+<div id="list"></div>
+
+<button class="fab" id="fabAdd" aria-label="Add job">+</button>
+
+<!-- Job sheet -->
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet">
+    <h2 id="sheetTitle">New job</h2>
+    <div class="row2">
+      <div class="field">
+        <label>Room</label>
+        <input id="f_room" type="text" list="roomOptions" placeholder="311">
+        <datalist id="roomOptions"></datalist>
+      </div>
+      <div class="field">
+        <label>Area</label>
+        <input id="f_area" type="text" list="areaOptions" placeholder="e.g. 3rd Floor">
+        <datalist id="areaOptions"></datalist>
+      </div>
+    </div>
+    <div class="field">
+      <label>Issue</label>
+      <textarea id="f_issue" rows="3" placeholder="e.g. Replace room controller — repeated P10 comms faults"></textarea>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Status</label>
+        <select id="f_status">
+          <option>Open</option>
+          <option>In Progress</option>
+          <option>Awaiting Parts</option>
+          <option>Done</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Logged by</label>
+        <input id="f_loggedBy" type="text" placeholder="Optional">
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="f_notes" rows="2" placeholder="Optional running notes"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="deleteBtn" style="display:none;">Delete</button>
+      <button class="btn btn-primary" id="saveBtn">Save job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop" id="settingsBackdrop">
+  <div class="sheet">
+    <h2>Settings</h2>
+
+    <div class="settings-section">
+      <h3>Site</h3>
+      <div class="field">
+        <label>Hotel / site name</label>
+        <input id="s_siteName" type="text" placeholder="e.g. Leonardo Hotel Sheffield">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Areas</h3>
+      <div class="tag-list" id="areaTagList"></div>
+      <div class="row2">
+        <div class="field" style="margin-bottom:0;">
+          <input id="s_newArea" type="text" placeholder="Add area, e.g. Bar / Kitchen / 4th Floor">
+        </div>
+        <button class="btn btn-primary" id="addAreaBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Rooms</h3>
+      <div id="roomList"></div>
+      <div class="row2">
+        <div class="field" style="margin-bottom:0;">
+          <input id="s_newRoomNum" type="text" placeholder="Room no.">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <input id="s_newRoomArea" type="text" list="areaOptions" placeholder="Area">
+        </div>
+        <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
