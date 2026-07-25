@@ -74,11 +74,15 @@ function renderChips(){
   });
 }
 
-function renderDatalists(){
-  const roomDL = el('roomOptions');
-  roomDL.innerHTML = rooms.map(r=>`<option value="${escapeHtml(r.number)}">`).join('');
-  const areaDL = el('areaOptions');
-  areaDL.innerHTML = (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">`).join('');
+function renderAreaSelects(){
+  const options = `<option value="">Select area…</option>` +
+    (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  const currentJobArea = el('f_area').value;
+  const currentSettingsArea = el('s_newRoomArea').value;
+  el('f_area').innerHTML = options;
+  el('s_newRoomArea').innerHTML = options;
+  if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
+  if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
 }
 
 // ---------------- rendering: job list ----------------
@@ -237,7 +241,7 @@ async function handleSaveJob(){
 
   await DB.putJob(job);
   closeJobSheet();
-  renderDatalists();
+  renderAreaSelects();
   render();
   toast('Saved');
 }
@@ -274,7 +278,7 @@ function renderAreaTags(){
       config.areas = config.areas.filter(x=>x!==a);
       await DB.setConfig(config);
       renderAreaTags();
-      renderDatalists();
+      renderAreaSelects();
       toast('Area removed');
     });
     wrap.appendChild(tag);
@@ -293,7 +297,7 @@ function renderRoomList(){
       rooms = rooms.filter(x=>x.id!==r.id);
       await DB.deleteRoom(r.id);
       renderRoomList();
-      renderDatalists();
+      renderAreaSelects();
       toast('Room removed');
     });
     wrap.appendChild(row);
@@ -307,7 +311,7 @@ async function handleAddArea(){
     config.areas = [...(config.areas||[]), val];
     await DB.setConfig(config);
     renderAreaTags();
-    renderDatalists();
+    renderAreaSelects();
   }
   el('s_newArea').value = '';
 }
@@ -319,7 +323,7 @@ async function handleAddRoom(){
   await ensureRoomExists(num, area);
   renderRoomList();
   renderAreaTags();
-  renderDatalists();
+  renderAreaSelects();
   el('s_newRoomNum').value = '';
   el('s_newRoomArea').value = '';
   toast('Room added');
@@ -365,7 +369,7 @@ el('s_siteName').addEventListener('blur', handleSaveSiteName);
   await seedIfEmpty();
   renderHeader();
   renderChips();
-  renderDatalists();
+  renderAreaSelects();
   render();
 
   if('serviceWorker' in navigator){
