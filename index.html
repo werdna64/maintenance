@@ -39,13 +39,13 @@
     <div class="row2">
       <div class="field">
         <label>Room</label>
-        <input id="f_room" type="text" list="roomOptions" placeholder="311">
-        <datalist id="roomOptions"></datalist>
+        <input id="f_room" type="text" placeholder="311">
       </div>
       <div class="field">
         <label>Area</label>
-        <input id="f_area" type="text" list="areaOptions" placeholder="e.g. 3rd Floor">
-        <datalist id="areaOptions"></datalist>
+        <select id="f_area">
+          <option value="">Select area…</option>
+        </select>
       </div>
     </div>
     <div class="field">
@@ -111,7 +111,9 @@
           <input id="s_newRoomNum" type="text" placeholder="Room no.">
         </div>
         <div class="field" style="margin-bottom:0;">
-          <input id="s_newRoomArea" type="text" list="areaOptions" placeholder="Area">
+          <select id="s_newRoomArea">
+            <option value="">Select area…</option>
+          </select>
         </div>
         <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
       </div>
