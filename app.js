@@ -45,26 +45,14 @@ async function loadAll(){
 }
 
 async function seedIfEmpty(){
-  if(jobs.length === 0 && rooms.length === 0){
-    config = { siteName: "Leonardo Hotel Sheffield", areas: ["Ground Floor","1st Floor","2nd Floor","3rd Floor","4th Floor"] };
-    await DB.setConfig(config);
-
-    const seedRooms = [
-      { id: uid('r'), number: '311', area: '3rd Floor' },
-      { id: uid('r'), number: '312', area: '3rd Floor' }
-    ];
-    for(const r of seedRooms){ await DB.putRoom(r); rooms.push(r); }
-
-    const now = new Date().toISOString();
-    const seedJobs = [
-      { id: uid('j'), room:'311', issue:'Replace room controller — repeated P10 comms faults (25 ON events, 21–24/07)', status:'Open', notes:'', loggedBy:'', dateLogged: now, dateClosed:'' },
-      { id: uid('j'), room:'312', issue:'Replace room controller — repeated P10 comms faults (12 ON events, 21–23/07)', status:'Open', notes:'', loggedBy:'', dateLogged: now, dateClosed:'' }
-    ];
-    for(const j of seedJobs){ await DB.putJob(j); jobs.push(j); }
-  } else if(!config.siteName){
+  if(!config.siteName){
     config = { siteName: "Room Jobs", areas: [] };
     await DB.setConfig(config);
   }
+  // No hotel-specific data is seeded here on purpose — this file is
+  // committed to a public repo. Set the site name, areas, rooms, and
+  // jobs from the ⚙ Settings screen after install; that data stays in
+  // the phone's local IndexedDB only and is never part of the source.
 }
 
 // ---------------- rendering: header / chips ----------------
