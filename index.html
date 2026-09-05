@@ -11,14 +11,50 @@
 </head>
 <body>
 
+<!-- Login screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-eyebrow">Facilities</div>
+    <h1 class="login-title">Room Jobs</h1>
+
+    <div id="roleStep">
+      <div class="login-hint">Who's signing in?</div>
+      <div class="role-grid">
+        <button class="role-btn" data-role="maintenance">Maintenance</button>
+        <button class="role-btn" data-role="housekeeping">Housekeeping</button>
+        <button class="role-btn" data-role="management">Management</button>
+      </div>
+    </div>
+
+    <div id="pinStep" style="display:none;">
+      <div class="login-hint" id="pinRoleLabel">Enter the Maintenance PIN</div>
+      <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
+      <div class="login-error" id="loginError"></div>
+      <div class="login-actions">
+        <button class="btn btn-ghost" id="pinBackBtn">Back</button>
+        <button class="btn btn-primary" id="pinSubmitBtn">Sign in</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="appRoot" style="display:none;">
+
 <header>
   <div class="titles">
     <div class="eyebrow" id="siteEyebrow">Facilities</div>
     <h1 id="siteTitle">Room Jobs</h1>
     <div class="sub" id="summaryLine">Loading…</div>
   </div>
-  <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+  <div class="header-actions">
+    <span class="role-badge" id="roleBadge"></span>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+    <button class="icon-btn" id="logoutBtn" aria-label="Log out">⏻</button>
+  </div>
 </header>
+
+<div class="stats-bar" id="statsBar"></div>
 
 <div class="controls">
   <div class="search-row">
@@ -32,7 +68,7 @@
 
 <button class="fab" id="fabAdd" aria-label="Add job">+</button>
 
-<!-- Job sheet -->
+<!-- Job sheet (maintenance: full edit. others: read-only view) -->
 <div class="sheet-backdrop" id="sheetBackdrop">
   <div class="sheet">
     <h2 id="sheetTitle">New job</h2>
@@ -72,14 +108,39 @@
       <textarea id="f_notes" rows="2" placeholder="Optional running notes"></textarea>
     </div>
     <div class="sheet-actions">
-      <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
+      <button class="btn btn-ghost" id="cancelBtn">Close</button>
       <button class="btn btn-danger" id="deleteBtn" style="display:none;">Delete</button>
       <button class="btn btn-primary" id="saveBtn">Save job</button>
     </div>
   </div>
 </div>
 
-<!-- Settings sheet -->
+<!-- Report sheet (housekeeping: raise a new problem against an existing room) -->
+<div class="sheet-backdrop" id="reportBackdrop">
+  <div class="sheet">
+    <h2>Report a problem</h2>
+    <div class="field">
+      <label>Room</label>
+      <select id="r_room">
+        <option value="">Select room…</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>What's wrong?</label>
+      <textarea id="r_issue" rows="3" placeholder="Describe the problem"></textarea>
+    </div>
+    <div class="field">
+      <label>Reported by</label>
+      <input id="r_reportedBy" type="text" placeholder="Your name">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="reportCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="reportSubmitBtn">Submit report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings sheet (maintenance only) -->
 <div class="sheet-backdrop" id="settingsBackdrop">
   <div class="sheet">
     <h2>Settings</h2>
@@ -127,6 +188,12 @@
 
 <div class="toast" id="toast"></div>
 
+</div><!-- /appRoot -->
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
 </body>

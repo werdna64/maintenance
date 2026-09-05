@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+// (see README.md for full setup). Roles are assigned by writing a
+// document to /roles/{uid} from the Firebase console — never from the
+// app itself, so a signed-in user can never grant themselves a role.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
+    }
+
+    function isMaintenance() {
+      return signedIn() && role() == 'maintenance';
+    }
+
+    function isHousekeeping() {
+      return signedIn() && role() == 'housekeeping';
+    }
+
+    // Each of the three fixed accounts has a /roles/{uid} doc naming its
+    // role. Only that account can read its own doc; nobody can write one
+    // from the client — roles are set by hand in the Firebase console.
+    match /roles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Jobs: maintenance has full control. Housekeeping can log a new
+    // problem report but can't edit or delete anything (including their
+    // own reports) — corrections go through maintenance. Everyone signed
+    // in (including management, read-only) can read the list.
+    match /jobs/{jobId} {
+      allow read: if signedIn();
+      allow create: if isMaintenance() || isHousekeeping();
+      allow update, delete: if isMaintenance();
+    }
+
+    // Rooms and site config (areas, site name) are maintenance-managed.
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow write: if isMaintenance();
+    }
+
+    match /config/{doc} {
+      allow read: if signedIn();
+      allow write: if isMaintenance();
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

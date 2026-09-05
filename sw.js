@@ -1,10 +1,11 @@
-const CACHE_NAME = 'room-jobs-v2';
+const CACHE_NAME = 'room-jobs-v3';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './db.js',
+  './firebase-config.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png'
@@ -12,7 +13,12 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      // Cache each asset independently — if one fails (e.g. this device
+      // has never fetched firebase-config.js yet) the rest still install,
+      // instead of addAll() failing the whole install on one miss.
+      Promise.all(ASSETS.map((url) => cache.add(url).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
@@ -27,10 +33,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).catch(() => cached);
+      const network = fetch(event.request).then((response) => {
+        // Opportunistically cache the Firebase SDK and anything else the
+        // app loads, so a repeat visit works offline too.
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      }).catch(() => cached);
+      return cached || network;
     })
   );
 });

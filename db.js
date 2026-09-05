@@ -1,119 +1,112 @@
-/* db.js — local IndexedDB persistence layer.
-   Everything lives on-device. No network calls. This file is the seam
-   where a future sync/server layer would plug in (see notes at bottom). */
+/* db.js — Firebase-backed auth + data layer.
 
-const DB_NAME = 'roomJobsDB';
-const DB_VERSION = 1;
+   Auth: there are three fixed accounts (maintenance / housekeeping /
+   management), one per role — see firebase-config.js (ROLE_ACCOUNTS) and
+   README.md. "Logging in" from the app's point of view is picking a role
+   and typing that role's PIN; under the hood this is a real Firebase
+   email+password sign-in, so Firebase's own throttling/hashing applies —
+   this file never sees or stores a password itself.
 
-function openDB(){
-  return new Promise((resolve, reject)=>{
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e)=>{
-      const db = e.target.result;
-      if(!db.objectStoreNames.contains('jobs')){
-        const jobStore = db.createObjectStore('jobs', { keyPath: 'id' });
-        jobStore.createIndex('room', 'room');
-        jobStore.createIndex('status', 'status');
-        jobStore.createIndex('area', 'area');
-      }
-      if(!db.objectStoreNames.contains('rooms')){
-        db.createObjectStore('rooms', { keyPath: 'id' });
-      }
-      if(!db.objectStoreNames.contains('config')){
-        db.createObjectStore('config', { keyPath: 'key' });
-      }
-    };
-    req.onsuccess = ()=> resolve(req.result);
-    req.onerror = ()=> reject(req.error);
-  });
-}
+   Data: jobs / rooms / config live in Firestore and sync in realtime to
+   every signed-in device. Firestore's own offline cache (enabled below)
+   keeps the app usable with no signal, exactly like the old IndexedDB
+   version did — writes made offline queue and flush when back online.
 
-let dbPromise = openDB();
+   Access control is NOT enforced here — it's enforced server-side by
+   firestore.rules, keyed on the role recorded in /roles/{uid}. Treat any
+   UI-level restriction in app.js as a convenience, not the security
+   boundary. */
 
-async function tx(storeName, mode){
-  const db = await dbPromise;
-  return db.transaction(storeName, mode).objectStore(storeName);
-}
+firebase.initializeApp(window.FIREBASE_CONFIG);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+
+firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {
+  // Multiple tabs without synchronizeTabs support, or a browser that
+  // doesn't support persistence (e.g. private browsing) — the app still
+  // works, just without the offline cache.
+});
+
+let currentRole = null;
 
 const DB = {
-  // ---- jobs ----
-  async getAllJobs(){
-    const store = await tx('jobs', 'readonly');
-    return new Promise((res, rej)=>{
-      const req = store.getAll();
-      req.onsuccess = ()=> res(req.result);
-      req.onerror = ()=> rej(req.error);
-    });
+  // ---- auth ----
+  async signIn(role, pin) {
+    const email = (window.ROLE_ACCOUNTS || {})[role];
+    if (!email) throw new Error('Unknown role: ' + role);
+    await auth.signInWithEmailAndPassword(email, pin);
   },
-  async putJob(job){
-    const store = await tx('jobs', 'readwrite');
-    return new Promise((res, rej)=>{
-      const req = store.put(job);
-      req.onsuccess = ()=> res();
-      req.onerror = ()=> rej(req.error);
-    });
+
+  async signOut() {
+    currentRole = null;
+    await auth.signOut();
   },
-  async deleteJob(id){
-    const store = await tx('jobs', 'readwrite');
-    return new Promise((res, rej)=>{
-      const req = store.delete(id);
-      req.onsuccess = ()=> res();
-      req.onerror = ()=> rej(req.error);
+
+  getRole() {
+    return currentRole;
+  },
+
+  // Fires once at startup and again on every sign-in/sign-out.
+  // callback(role|null, user|null)
+  onAuthChange(callback) {
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        currentRole = null;
+        callback(null, null);
+        return;
+      }
+      try {
+        const doc = await firestore.collection('roles').doc(user.uid).get();
+        currentRole = doc.exists ? doc.data().role : null;
+      } catch (e) {
+        currentRole = null;
+      }
+      if (!currentRole) {
+        // Signed in with Firebase but no role assigned (e.g. account set
+        // up but the /roles doc wasn't created yet) — treat as logged out.
+        await auth.signOut();
+        callback(null, null);
+        return;
+      }
+      callback(currentRole, user);
     });
   },
 
-  // ---- rooms (configurable list, tagged to an area) ----
-  async getAllRooms(){
-    const store = await tx('rooms', 'readonly');
-    return new Promise((res, rej)=>{
-      const req = store.getAll();
-      req.onsuccess = ()=> res(req.result);
-      req.onerror = ()=> rej(req.error);
+  // ---- jobs (realtime) ----
+  onJobsChange(callback) {
+    return firestore.collection('jobs').onSnapshot((snap) => {
+      callback(snap.docs.map(d => d.data()));
     });
   },
-  async putRoom(room){
-    const store = await tx('rooms', 'readwrite');
-    return new Promise((res, rej)=>{
-      const req = store.put(room);
-      req.onsuccess = ()=> res();
-      req.onerror = ()=> rej(req.error);
-    });
+  async putJob(job) {
+    await firestore.collection('jobs').doc(job.id).set(job);
   },
-  async deleteRoom(id){
-    const store = await tx('rooms', 'readwrite');
-    return new Promise((res, rej)=>{
-      const req = store.delete(id);
-      req.onsuccess = ()=> res();
-      req.onerror = ()=> rej(req.error);
-    });
+  async deleteJob(id) {
+    await firestore.collection('jobs').doc(id).delete();
   },
 
-  // ---- config (site name, areas list) ----
-  async getConfig(){
-    const store = await tx('config', 'readonly');
-    return new Promise((res, rej)=>{
-      const req = store.get('main');
-      req.onsuccess = ()=> res(req.result ? req.result.value : null);
-      req.onerror = ()=> rej(req.error);
+  // ---- rooms (realtime) ----
+  onRoomsChange(callback) {
+    return firestore.collection('rooms').onSnapshot((snap) => {
+      callback(snap.docs.map(d => d.data()));
     });
   },
-  async setConfig(value){
-    const store = await tx('config', 'readwrite');
-    return new Promise((res, rej)=>{
-      const req = store.put({ key: 'main', value });
-      req.onsuccess = ()=> res();
-      req.onerror = ()=> rej(req.error);
+  async putRoom(room) {
+    await firestore.collection('rooms').doc(room.id).set(room);
+  },
+  async deleteRoom(id) {
+    await firestore.collection('rooms').doc(id).delete();
+  },
+
+  // ---- config (realtime) ----
+  onConfigChange(callback) {
+    return firestore.collection('config').doc('main').onSnapshot((doc) => {
+      callback(doc.exists ? doc.data() : null);
     });
+  },
+  async setConfig(value) {
+    await firestore.collection('config').doc('main').set(value);
   }
 };
-
-/* ---------------------------------------------------------------
-   FUTURE SYNC HOOK:
-   When a backend exists, wrap DB.putJob/putRoom/setConfig to also
-   push to the server (with a local outbox + retry for offline use),
-   and add a pull-on-launch step before first render. The IndexedDB
-   copy stays the source of truth for instant, offline-first reads;
-   the server becomes a sync target rather than a dependency.
---------------------------------------------------------------- */
 
 window.DB = DB;

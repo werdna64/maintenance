@@ -6,6 +6,11 @@ let rooms = [];      // { id, number, area }
 let config = { siteName: "Room Jobs", areas: [] };
 let activeFilter = "All";
 let editingId = null;
+let currentRole = null;
+let pendingRole = null;   // role chosen on the login screen, awaiting PIN
+let sheetReadOnly = false;
+
+let unsubJobs = null, unsubRooms = null, unsubConfig = null;
 
 const el = id => document.getElementById(id);
 
@@ -35,24 +40,77 @@ function roomArea(roomNumber){
   return r ? r.area : 'Unassigned';
 }
 
-// ---------------- load / persist ----------------
+// ---------------- login ----------------
 
-async function loadAll(){
-  jobs = await DB.getAllJobs();
-  rooms = await DB.getAllRooms();
-  const cfg = await DB.getConfig();
-  if(cfg) config = cfg;
+function showRoleStep(){
+  pendingRole = null;
+  el('pinInput').value = '';
+  el('loginError').textContent = '';
+  el('roleStep').style.display = '';
+  el('pinStep').style.display = 'none';
 }
 
-async function seedIfEmpty(){
-  if(!config.siteName){
-    config = { siteName: "Room Jobs", areas: [] };
-    await DB.setConfig(config);
+function showPinStep(role){
+  pendingRole = role;
+  el('pinRoleLabel').textContent = `Enter the ${role[0].toUpperCase()+role.slice(1)} PIN`;
+  el('loginError').textContent = '';
+  el('pinInput').value = '';
+  el('roleStep').style.display = 'none';
+  el('pinStep').style.display = '';
+  el('pinInput').focus();
+}
+
+async function handlePinSubmit(){
+  const pin = el('pinInput').value.trim();
+  if(!pin){ el('loginError').textContent = 'Enter a PIN.'; return; }
+  el('pinSubmitBtn').disabled = true;
+  try{
+    await DB.signIn(pendingRole, pin);
+    // DB.onAuthChange fires and drives the rest of the UI switch.
+  }catch(e){
+    el('loginError').textContent = 'Incorrect PIN. Try again.';
+  }finally{
+    el('pinSubmitBtn').disabled = false;
   }
-  // No hotel-specific data is seeded here on purpose — this file is
-  // committed to a public repo. Set the site name, areas, rooms, and
-  // jobs from the ⚙ Settings screen after install; that data stays in
-  // the phone's local IndexedDB only and is never part of the source.
+}
+
+async function handleLogout(){
+  if(unsubJobs) unsubJobs();
+  if(unsubRooms) unsubRooms();
+  if(unsubConfig) unsubConfig();
+  unsubJobs = unsubRooms = unsubConfig = null;
+  await DB.signOut();
+}
+
+function applyRolePermissions(role){
+  el('roleBadge').textContent = role[0].toUpperCase()+role.slice(1);
+  el('settingsBtn').style.display = (role === 'maintenance') ? '' : 'none';
+
+  if(role === 'maintenance'){
+    el('fabAdd').style.display = '';
+    el('fabAdd').onclick = ()=>openJobSheet(null);
+  } else if(role === 'housekeeping'){
+    el('fabAdd').style.display = '';
+    el('fabAdd').onclick = ()=>openReportSheet();
+  } else {
+    el('fabAdd').style.display = 'none';
+  }
+
+  el('statsBar').style.display = (role === 'management') ? 'flex' : 'none';
+}
+
+// ---------------- realtime data wiring ----------------
+
+function subscribeData(){
+  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); });
+  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
+  unsubConfig = DB.onConfigChange(cfg => {
+    config = cfg || { siteName: "Room Jobs", areas: [] };
+    if(!config.areas) config.areas = [];
+    renderHeader();
+    renderAreaSelects();
+    render();
+  });
 }
 
 // ---------------- rendering: header / chips ----------------
@@ -85,9 +143,29 @@ function renderAreaSelects(){
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
 }
 
+function renderRoomSelect(){
+  const sorted = [...rooms].sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
+  el('r_room').innerHTML = `<option value="">Select room…</option>` +
+    sorted.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)} — ${escapeHtml(r.area)}</option>`).join('');
+}
+
+function renderStats(){
+  if(el('statsBar').style.display === 'none') return;
+  const counts = { Open:0, "In Progress":0, "Awaiting Parts":0, Done:0 };
+  jobs.forEach(j=>{ if(counts[j.status] !== undefined) counts[j.status]++; });
+  el('statsBar').innerHTML = STATUSES.map(s=>`
+    <div class="stat-tile">
+      <div class="stat-num">${counts[s]}</div>
+      <div class="stat-label">${escapeHtml(s)}</div>
+    </div>
+  `).join('');
+}
+
 // ---------------- rendering: job list ----------------
 
 function render(){
+  renderStats();
+
   const q = el('searchInput').value.trim().toLowerCase();
   let filtered = jobs.filter(j=>{
     if(activeFilter !== 'All' && j.status !== activeFilter) return false;
@@ -143,6 +221,7 @@ function render(){
         const card = document.createElement('div');
         card.className = 'card';
         const statusClass = 'status-' + j.status.replace(/ /g,'-');
+        const canEdit = currentRole === 'maintenance';
         card.innerHTML = `
           <div class="plaque">${escapeHtml(j.room)}</div>
           <div class="card-body">
@@ -153,17 +232,22 @@ function render(){
               ${j.status==='Done' && j.dateClosed ? `<span>Closed ${fmtDate(j.dateClosed)}</span>` : ''}
             </div>
             ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}</div>` : ''}
-            <button class="status-btn ${statusClass}" data-id="${j.id}">${j.status}</button>
+            ${canEdit
+              ? `<button class="status-btn ${statusClass}" data-id="${j.id}">${j.status}</button>`
+              : `<span class="status-badge ${statusClass}">${j.status}</span>`}
           </div>
         `;
         card.querySelector('.card-body').addEventListener('click', (e)=>{
           if(e.target.classList.contains('status-btn')) return;
           openJobSheet(j);
         });
-        card.querySelector('.status-btn').addEventListener('click', (e)=>{
-          e.stopPropagation();
-          cycleStatus(j);
-        });
+        const btn = card.querySelector('.status-btn');
+        if(btn){
+          btn.addEventListener('click', (e)=>{
+            e.stopPropagation();
+            cycleStatus(j);
+          });
+        }
         g.appendChild(card);
       });
     });
@@ -172,26 +256,34 @@ function render(){
 }
 
 async function cycleStatus(j){
+  if(currentRole !== 'maintenance') return;
   const idx = STATUSES.indexOf(j.status);
   j.status = STATUSES[(idx+1) % STATUSES.length];
   j.dateClosed = (j.status === 'Done') ? new Date().toISOString() : '';
   await DB.putJob(j);
-  render();
   toast(`${j.room} → ${j.status}`);
 }
 
-// ---------------- job sheet ----------------
+// ---------------- job sheet (maintenance: edit, others: view) ----------------
 
 function openJobSheet(job){
+  const canEdit = currentRole === 'maintenance';
+  sheetReadOnly = !canEdit;
   editingId = job ? job.id : null;
-  el('sheetTitle').textContent = job ? `Edit — Room ${job.room}` : 'New job';
+  el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — Room ${job.room}` : 'New job';
   el('f_room').value = job ? job.room : '';
   el('f_area').value = job ? roomArea(job.room) : '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
   el('f_loggedBy').value = job ? (job.loggedBy||'') : '';
   el('f_notes').value = job ? (job.notes||'') : '';
-  el('deleteBtn').style.display = job ? 'block' : 'none';
+
+  ['f_room','f_area','f_issue','f_status','f_loggedBy','f_notes'].forEach(id=>{
+    el(id).disabled = sheetReadOnly;
+  });
+  el('deleteBtn').style.display = (job && canEdit) ? 'block' : 'none';
+  el('saveBtn').style.display = canEdit ? 'block' : 'none';
+  el('cancelBtn').textContent = canEdit ? 'Cancel' : 'Close';
   el('sheetBackdrop').classList.add('open');
 }
 
@@ -205,7 +297,6 @@ async function ensureRoomExists(number, area){
   let r = rooms.find(r => r.number === number);
   if(!r){
     r = { id: uid('r'), number, area: area || 'Unassigned' };
-    rooms.push(r);
     await DB.putRoom(r);
   } else if(area && r.area !== area){
     r.area = area;
@@ -218,6 +309,7 @@ async function ensureRoomExists(number, area){
 }
 
 async function handleSaveJob(){
+  if(currentRole !== 'maintenance') return;
   const room = el('f_room').value.trim();
   if(!room){ toast('Room is required'); return; }
   const area = el('f_area').value.trim();
@@ -225,12 +317,9 @@ async function handleSaveJob(){
 
   await ensureRoomExists(room, area);
 
-  let job;
-  if(editingId){
-    job = jobs.find(j=>j.id===editingId);
-  } else {
+  let job = editingId ? jobs.find(j=>j.id===editingId) : null;
+  if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
-    jobs.push(job);
   }
   job.room = room;
   job.issue = el('f_issue').value.trim();
@@ -241,21 +330,52 @@ async function handleSaveJob(){
 
   await DB.putJob(job);
   closeJobSheet();
-  renderAreaSelects();
-  render();
   toast('Saved');
 }
 
 async function handleDeleteJob(){
-  if(!editingId) return;
-  jobs = jobs.filter(j=>j.id!==editingId);
+  if(currentRole !== 'maintenance' || !editingId) return;
   await DB.deleteJob(editingId);
   closeJobSheet();
-  render();
   toast('Deleted');
 }
 
-// ---------------- settings sheet ----------------
+// ---------------- report sheet (housekeeping: raise a problem) ----------------
+
+function openReportSheet(){
+  el('r_room').value = '';
+  el('r_issue').value = '';
+  el('r_reportedBy').value = '';
+  el('reportBackdrop').classList.add('open');
+}
+
+function closeReportSheet(){
+  el('reportBackdrop').classList.remove('open');
+}
+
+async function handleSubmitReport(){
+  const room = el('r_room').value.trim();
+  if(!room){ toast('Select a room'); return; }
+  const issue = el('r_issue').value.trim();
+  if(!issue){ toast('Describe the problem'); return; }
+  const reportedBy = el('r_reportedBy').value.trim();
+
+  const job = {
+    id: uid('j'),
+    room,
+    issue,
+    status: 'Open',
+    loggedBy: reportedBy,
+    notes: '',
+    dateLogged: new Date().toISOString(),
+    dateClosed: ''
+  };
+  await DB.putJob(job);
+  closeReportSheet();
+  toast('Reported — thanks!');
+}
+
+// ---------------- settings sheet (maintenance only) ----------------
 
 function openSettings(){
   el('s_siteName').value = config.siteName || '';
@@ -277,8 +397,6 @@ function renderAreaTags(){
     tag.querySelector('button').addEventListener('click', async ()=>{
       config.areas = config.areas.filter(x=>x!==a);
       await DB.setConfig(config);
-      renderAreaTags();
-      renderAreaSelects();
       toast('Area removed');
     });
     wrap.appendChild(tag);
@@ -294,10 +412,8 @@ function renderRoomList(){
     row.className = 'room-row';
     row.innerHTML = `<span class="r-num">${escapeHtml(r.number)}</span><span class="r-area">${escapeHtml(r.area)}</span><button data-id="${r.id}">×</button>`;
     row.querySelector('button').addEventListener('click', async ()=>{
-      rooms = rooms.filter(x=>x.id!==r.id);
       await DB.deleteRoom(r.id);
       renderRoomList();
-      renderAreaSelects();
       toast('Room removed');
     });
     wrap.appendChild(row);
@@ -310,8 +426,6 @@ async function handleAddArea(){
   if(!(config.areas||[]).includes(val)){
     config.areas = [...(config.areas||[]), val];
     await DB.setConfig(config);
-    renderAreaTags();
-    renderAreaSelects();
   }
   el('s_newArea').value = '';
 }
@@ -321,9 +435,6 @@ async function handleAddRoom(){
   const area = el('s_newRoomArea').value.trim();
   if(!num){ toast('Room number required'); return; }
   await ensureRoomExists(num, area);
-  renderRoomList();
-  renderAreaTags();
-  renderAreaSelects();
   el('s_newRoomNum').value = '';
   el('s_newRoomArea').value = '';
   toast('Room added');
@@ -332,16 +443,27 @@ async function handleAddRoom(){
 async function handleSaveSiteName(){
   config.siteName = el('s_siteName').value.trim() || 'Room Jobs';
   await DB.setConfig(config);
-  renderHeader();
 }
 
 // ---------------- wiring ----------------
 
-el('fabAdd').addEventListener('click', ()=>openJobSheet(null));
+el('roleStep').querySelectorAll('.role-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>showPinStep(btn.dataset.role));
+});
+el('pinBackBtn').addEventListener('click', showRoleStep);
+el('pinSubmitBtn').addEventListener('click', handlePinSubmit);
+el('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') handlePinSubmit(); });
+el('logoutBtn').addEventListener('click', handleLogout);
+
 el('cancelBtn').addEventListener('click', closeJobSheet);
 el('saveBtn').addEventListener('click', handleSaveJob);
 el('deleteBtn').addEventListener('click', handleDeleteJob);
 el('sheetBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
+
+el('reportCancelBtn').addEventListener('click', closeReportSheet);
+el('reportSubmitBtn').addEventListener('click', handleSubmitReport);
+el('reportBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
+
 el('searchInput').addEventListener('input', render);
 el('showAllBtn').addEventListener('click', ()=>{
   el('searchInput').value = '';
@@ -355,7 +477,6 @@ el('settingsBtn').addEventListener('click', openSettings);
 el('closeSettingsBtn').addEventListener('click', async ()=>{
   await handleSaveSiteName();
   closeSettings();
-  render();
 });
 el('settingsBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
 el('addAreaBtn').addEventListener('click', handleAddArea);
@@ -364,15 +485,23 @@ el('s_siteName').addEventListener('blur', handleSaveSiteName);
 
 // ---------------- init ----------------
 
-(async function init(){
-  await loadAll();
-  await seedIfEmpty();
-  renderHeader();
-  renderChips();
-  renderAreaSelects();
-  render();
+renderChips();
 
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+DB.onAuthChange((role)=>{
+  if(role){
+    currentRole = role;
+    el('loginScreen').style.display = 'none';
+    el('appRoot').style.display = '';
+    applyRolePermissions(role);
+    subscribeData();
+  } else {
+    currentRole = null;
+    el('appRoot').style.display = 'none';
+    el('loginScreen').style.display = '';
+    showRoleStep();
   }
-})();
+});
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
