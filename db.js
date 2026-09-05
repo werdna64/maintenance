@@ -17,6 +17,8 @@
    UI-level restriction in app.js as a convenience, not the security
    boundary. */
 
+(function(){
+
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const auth = firebase.auth();
 const firestore = firebase.firestore();
@@ -110,3 +112,5 @@ const DB = {
 };
 
 window.DB = DB;
+
+})();

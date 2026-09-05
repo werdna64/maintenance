@@ -1,4 +1,4 @@
-const CACHE_NAME = 'room-jobs-v4';
+const CACHE_NAME = 'room-jobs-v5';
 const ASSETS = [
   './',
   './index.html',
