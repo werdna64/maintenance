@@ -28,7 +28,7 @@ relaying through the chat group.
 - `app.js` — app logic (login, jobs, rooms, areas, settings, role-based UI)
 - `db.js` — Firebase Authentication + Firestore data layer
 - `firebase-config.example.js` — template for your Firebase project's keys
-- `firebase-config.js` — **you create this** (gitignored — see setup below)
+- `firebase-config.js` — this hotel's actual Firebase project keys (committed — see "Get your web app config" below)
 - `firestore.rules` — server-side security rules (who can read/write what)
 - `firebase.json` — optional, only needed if you deploy with the Firebase CLI
 - `manifest.webmanifest` — lets Chrome/Safari install it as an app
@@ -101,22 +101,23 @@ installed: `firebase deploy --only firestore:rules` using the included
 2. Register it (any nickname), skip hosting setup if asked.
 3. Copy the `firebaseConfig` object it shows you.
 4. In this repo, copy `firebase-config.example.js` to `firebase-config.js`
-   and paste your values in. This file is deliberately git-ignored — it's
-   fine for these values to be public (Firebase's docs confirm the web
-   config isn't a secret), it's just kept out of this repo so the codebase
-   stays generic.
+   and paste your values in. It's fine for these values to be committed
+   and public (Firebase's docs confirm the web config isn't a secret —
+   real access control is the rules + Auth, not this file); it's just
+   `.gitignore`d by default so a copy of this codebase deployed for a
+   *different* hotel doesn't accidentally ship with your project's values.
+
+   (This repo already has its own `firebase-config.js` committed and
+   filled in — you only need to redo this step if you ever start a fresh
+   Firebase project.)
 
 ## Deploy to GitHub Pages (recommended — free, HTTPS, no IT involvement)
 
-1. Create a new **public** GitHub repo, e.g. `room-jobs`.
-2. Push all the files in this folder to the repo root — **including your
-   filled-in `firebase-config.js`** (it's gitignored in *this* repo only
-   so the template stays generic; your deployed copy needs to actually
-   ship it, or delete it from `.gitignore` before you push, or upload it
-   directly on github.com).
-3. In the repo: **Settings → Pages → Source → Deploy from a branch → main
+1. Push this repo to GitHub if it isn't already (it needs `firebase-config.js`
+   present at the repo root — see above).
+2. In the repo: **Settings → Pages → Source → Deploy from a branch → main
    → / (root)**.
-4. GitHub gives you a URL like `https://yourusername.github.io/room-jobs/`.
+3. GitHub gives you a URL like `https://yourusername.github.io/room-jobs/`.
    That's your app's permanent address — HTTPS by default, which service
    workers require.
 
