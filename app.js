@@ -145,8 +145,16 @@ function renderAreaSelects(){
 
 function renderRoomSelect(){
   const sorted = [...rooms].sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
-  el('r_room').innerHTML = `<option value="">Select room…</option>` +
+  const options = `<option value="">Select room…</option>` +
     sorted.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)} — ${escapeHtml(r.area)}</option>`).join('');
+
+  const currentReportRoom = el('r_room').value;
+  el('r_room').innerHTML = options;
+  if(sorted.some(r=>r.number === currentReportRoom)) el('r_room').value = currentReportRoom;
+
+  const currentJobRoom = el('f_room').value;
+  el('f_room').innerHTML = options;
+  if(sorted.some(r=>r.number === currentJobRoom)) el('f_room').value = currentJobRoom;
 }
 
 function renderStats(){
@@ -455,6 +463,10 @@ el('pinSubmitBtn').addEventListener('click', handlePinSubmit);
 el('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') handlePinSubmit(); });
 el('logoutBtn').addEventListener('click', handleLogout);
 
+el('f_room').addEventListener('change', ()=>{
+  const area = roomArea(el('f_room').value);
+  if((config.areas||[]).includes(area)) el('f_area').value = area;
+});
 el('cancelBtn').addEventListener('click', closeJobSheet);
 el('saveBtn').addEventListener('click', handleSaveJob);
 el('deleteBtn').addEventListener('click', handleDeleteJob);
