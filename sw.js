@@ -1,4 +1,4 @@
-const CACHE_NAME = 'room-jobs-v3';
+const CACHE_NAME = 'room-jobs-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -34,6 +34,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Only handle plain http(s) requests — browser extensions (ad blockers,
+  // compatibility shims, etc.) route their own chrome-extension:// / moz-
+  // extension:// requests through the page's service worker too, and the
+  // Cache API throws on anything but http(s). Let the browser handle those
+  // itself instead of trying (and failing) to cache them.
+  if (!event.request.url.startsWith('http')) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request).then((response) => {
@@ -41,7 +47,7 @@ self.addEventListener('fetch', (event) => {
         // app loads, so a repeat visit works offline too.
         if (response && response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
         }
         return response;
       }).catch(() => cached);
