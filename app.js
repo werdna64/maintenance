@@ -286,9 +286,10 @@ function openJobSheet(job){
   el('f_loggedBy').value = job ? (job.loggedBy||'') : '';
   el('f_notes').value = job ? (job.notes||'') : '';
 
-  ['f_room','f_area','f_issue','f_status','f_loggedBy','f_notes'].forEach(id=>{
+  ['f_room','f_issue','f_status','f_loggedBy','f_notes'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
+  el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
   el('deleteBtn').style.display = (job && canEdit) ? 'block' : 'none';
   el('saveBtn').style.display = canEdit ? 'block' : 'none';
   el('cancelBtn').textContent = canEdit ? 'Cancel' : 'Close';
@@ -320,10 +321,7 @@ async function handleSaveJob(){
   if(currentRole !== 'maintenance') return;
   const room = el('f_room').value.trim();
   if(!room){ toast('Room is required'); return; }
-  const area = el('f_area').value.trim();
   const status = el('f_status').value;
-
-  await ensureRoomExists(room, area);
 
   let job = editingId ? jobs.find(j=>j.id===editingId) : null;
   if(!job){
