@@ -11,6 +11,45 @@
 </head>
 <body>
 
+<!-- Self-contained error reporter: works even if app.js/db.js fail to
+     load or crash outright, since it depends on nothing else on the
+     page. Lets anyone read the exact error off their own screen
+     without needing browser DevTools (not available on most phones). -->
+<div id="errorBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999;
+  background:#7a2213; color:#fff; padding:12px 14px; font-family:monospace; font-size:12px;
+  white-space:pre-wrap; word-break:break-word; max-height:60vh; overflow-y:auto;">
+  <div style="font-weight:bold; margin-bottom:6px;">Something went wrong — copy this to Claude:</div>
+  <div id="errorBannerText"></div>
+  <button id="errorBannerClose" style="margin-top:8px; background:#fff; color:#7a2213; border:none;
+    border-radius:6px; padding:5px 12px; font-weight:bold;">Dismiss</button>
+</div>
+<script>
+(function(){
+  var shown = false;
+  function show(msg){
+    var b = document.getElementById('errorBanner');
+    var t = document.getElementById('errorBannerText');
+    if(!b || !t) return;
+    t.textContent = (shown ? t.textContent + '\n\n' : '') + msg;
+    shown = true;
+    b.style.display = 'block';
+  }
+  window.addEventListener('error', function(e){
+    show('Error: ' + e.message + '\nAt: ' + (e.filename||'?') + ':' + (e.lineno||'?') + ':' + (e.colno||'?'));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+    show('Unhandled promise rejection: ' + reason);
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('errorBannerClose');
+    if(btn) btn.addEventListener('click', function(){
+      document.getElementById('errorBanner').style.display = 'none';
+    });
+  });
+})();
+</script>
+
 <!-- Shown when a newer build is live than the one currently loaded -->
 <div class="update-banner" id="updateBanner">
   <span>A new version is available.</span>
