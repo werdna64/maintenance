@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.6';
+const APP_VERSION = '0.1.7';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -20,7 +20,7 @@ let currentUser = null;   // { uid, role, name }
 let sheetReadOnly = false;
 let lastSeenAt = null;
 
-let unsubJobs = null, unsubRooms = null, unsubLastSeen = null;
+let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null;
 
 const el = id => document.getElementById(id);
 
@@ -143,8 +143,9 @@ async function handleLogin(){
 async function handleLogout(){
   if(unsubJobs) unsubJobs();
   if(unsubRooms) unsubRooms();
+  if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
-  unsubJobs = unsubRooms = unsubLastSeen = null;
+  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = null;
   lastSeenAt = null;
   await DB.signOut();
 }
@@ -167,27 +168,22 @@ function applyRolePermissions(role){
 
 // ---------------- realtime data wiring ----------------
 
-// Config (site name, areas, common issues) is public-read and loads
-// independently of sign-in, so the site name can show on the login
-// screen before anyone's authenticated. Started once at app startup —
-// never torn down on logout, unlike jobs/rooms/notifications which do
-// require an authenticated role.
-function subscribeConfig(){
-  DB.onConfigChange(cfg => {
+// Config (site name, areas, common issues) is authenticated-only, like
+// everything else operational — the login screen shows a generic name
+// rather than exposing the real site name (and areas/common issues) to
+// anyone who finds the public repo's Firebase project, unauthenticated.
+function subscribeData(){
+  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
+  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
+  unsubConfig = DB.onConfigChange(cfg => {
     config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
     if(!config.areas) config.areas = [];
     if(!config.commonIssues) config.commonIssues = [];
-    el('loginEyebrow').textContent = config.siteName || 'Maintenance Tracker';
     renderHeader();
     renderAreaSelects();
     renderIssuePresetSelects();
     render();
   });
-}
-
-function subscribeData(){
-  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
-  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubLastSeen = DB.onLastSeenChange(ts => {
     if(ts === null){
       // Never checked before — seed to "now" so the whole pre-existing
@@ -782,7 +778,6 @@ el('s_siteName').addEventListener('blur', handleSaveSiteName);
 // ---------------- init ----------------
 
 renderChips();
-subscribeConfig();
 
 DB.onAuthChange((user)=>{
   if(user){

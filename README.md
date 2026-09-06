@@ -111,6 +111,18 @@ Easiest way — no install required:
 installed: `firebase deploy --only firestore:rules` using the included
 `firebase.json`.)
 
+**What these rules actually protect, beyond who-can-touch-what**: creating
+or editing a job requires the `createdByUid`/`createdByName` and
+`updatedByUid`/`updatedByName` fields to genuinely match whoever is
+signed in (checked against their `/users/{uid}` profile) — the app's UI
+was always the only thing enforcing honest attribution and "new jobs
+start Open," which meant someone using the Firestore SDK directly
+(bypassing the app entirely) could previously have forged those fields.
+This closes that gap. A job's `createdByUid`/`createdByName`/`dateLogged`
+also become permanently unchangeable after creation, for the same
+reason. Everyday use of the app is unaffected — this only blocks
+requests that don't match how the app actually behaves.
+
 ### 6. Get your web app config
 
 1. Project settings (gear icon) → **General** → scroll to **Your apps** →

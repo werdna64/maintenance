@@ -2,7 +2,7 @@
 // version.json — app.js polls version.json to detect a stale build and
 // prompt a reload; this cache name is what actually makes the new files
 // take effect once that reload happens.
-const CACHE_NAME = 'maintenance-tracker-0.1.6';
+const CACHE_NAME = 'maintenance-tracker-0.1.7';
 const ASSETS = [
   './',
   './index.html',

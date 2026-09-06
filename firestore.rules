@@ -13,8 +13,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function role() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return profile().role;
+    }
+
+    function displayName() {
+      return profile().name;
     }
 
     function isMaintenance() {
@@ -23,6 +31,35 @@ service cloud.firestore {
 
     function isHousekeeping() {
       return signedIn() && role() == 'housekeeping';
+    }
+
+    // A new job must be honestly attributed to whoever is actually
+    // creating it (matching their real /users profile, not whatever the
+    // client feels like asserting) and must start Open — the app's UI
+    // already enforces this, but a direct API/SDK call bypassing the UI
+    // must not be able to fabricate authorship or skip straight to a
+    // later status.
+    function isHonestJobCreate() {
+      let d = request.resource.data;
+      return d.createdByUid == request.auth.uid
+          && d.createdByName == displayName()
+          && d.updatedByUid == request.auth.uid
+          && d.updatedByName == displayName()
+          && d.status == 'Open';
+    }
+
+    // Editing a job may change its own fields (status, issue, notes,
+    // etc.) but can never rewrite who originally logged it or when —
+    // that's the permanent part of the audit trail. Whoever is saving
+    // right now must also be honestly attributed as the updater.
+    function isHonestJobUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.createdByUid == before.createdByUid
+          && after.createdByName == before.createdByName
+          && after.dateLogged == before.dateLogged
+          && after.updatedByUid == request.auth.uid
+          && after.updatedByName == displayName();
     }
 
     // Each person's account has a /users/{uid} doc naming their role and
@@ -37,24 +74,28 @@ service cloud.firestore {
     // Jobs: maintenance has full control. Housekeeping can log a new
     // problem report but can't edit or delete anything (including their
     // own reports) — corrections go through maintenance. Everyone signed
-    // in (including management, read-only) can read the list.
+    // in (including management, read-only) can read the list. Create and
+    // update both require honest self-attribution (see functions above)
+    // so the "who did what, when" trail can't be forged by a client
+    // talking to Firestore directly instead of through the app's UI.
     match /jobs/{jobId} {
       allow read: if signedIn();
-      allow create: if isMaintenance() || isHousekeeping();
-      allow update, delete: if isMaintenance();
+      allow create: if (isMaintenance() || isHousekeeping()) && isHonestJobCreate();
+      allow update: if isMaintenance() && isHonestJobUpdate();
+      allow delete: if isMaintenance();
     }
 
-    // Rooms and site config (areas, site name) are maintenance-managed.
+    // Rooms and site config (areas, site name) are maintenance-managed,
+    // and only readable once signed in — the login screen shows a
+    // generic name rather than fetching the real one, so this can stay
+    // authenticated-only rather than exposing it publicly.
     match /rooms/{roomId} {
       allow read: if signedIn();
       allow write: if isMaintenance();
     }
 
-    // Public read so the site name can show on the login screen before
-    // anyone signs in — it's a hotel name, not sensitive. Still
-    // maintenance-only to write.
     match /config/{doc} {
-      allow read: if true;
+      allow read: if signedIn();
       allow write: if isMaintenance();
     }
 
