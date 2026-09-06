@@ -117,6 +117,17 @@ const DB = {
   },
   async setConfig(value) {
     await firestore.collection('config').doc('main').set(value);
+  },
+
+  // ---- notifications: per-person "last seen" marker (realtime) ----
+  onLastSeenChange(callback) {
+    return firestore.collection('notificationState').doc(currentUser.uid).onSnapshot((doc) => {
+      callback(doc.exists ? doc.data().lastSeenAt : null);
+    });
+  },
+  async markNotificationsSeen() {
+    await firestore.collection('notificationState').doc(currentUser.uid)
+      .set({ lastSeenAt: new Date().toISOString() });
   }
 };
 

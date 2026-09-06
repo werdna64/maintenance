@@ -46,6 +46,9 @@
   </div>
   <div class="header-actions">
     <span class="role-badge" id="roleBadge"></span>
+    <button class="icon-btn" id="notifBtn" aria-label="Notifications">
+      🔔<span class="notif-count" id="notifCount"></span>
+    </button>
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
     <button class="icon-btn" id="logoutBtn" aria-label="Log out">⏻</button>
   </div>
@@ -138,6 +141,17 @@
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="reportCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="reportSubmitBtn">Submit report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications panel: what's new since you last looked -->
+<div class="sheet-backdrop" id="notifBackdrop">
+  <div class="sheet">
+    <h2>Notifications</h2>
+    <div id="notifList"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="notifCloseBtn">Close</button>
     </div>
   </div>
 </div>

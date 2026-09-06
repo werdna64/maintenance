@@ -55,6 +55,13 @@ service cloud.firestore {
       allow write: if isMaintenance();
     }
 
+    // Each person tracks their own "last checked notifications at" time,
+    // used to work out what's new since they last looked. Purely
+    // self-serve — nobody can read or write another person's marker.
+    match /notificationState/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

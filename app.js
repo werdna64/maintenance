@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '13';
+const APP_VERSION = '14';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -13,8 +13,9 @@ let editingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name }
 let sheetReadOnly = false;
+let lastSeenAt = null;
 
-let unsubJobs = null, unsubRooms = null, unsubConfig = null;
+let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null;
 
 const el = id => document.getElementById(id);
 
@@ -119,7 +120,9 @@ async function handleLogout(){
   if(unsubJobs) unsubJobs();
   if(unsubRooms) unsubRooms();
   if(unsubConfig) unsubConfig();
-  unsubJobs = unsubRooms = unsubConfig = null;
+  if(unsubLastSeen) unsubLastSeen();
+  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = null;
+  lastSeenAt = null;
   await DB.signOut();
 }
 
@@ -144,7 +147,7 @@ function applyRolePermissions(role){
 // ---------------- realtime data wiring ----------------
 
 function subscribeData(){
-  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); });
+  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubConfig = DB.onConfigChange(cfg => {
     config = cfg || { siteName: "Room Jobs", areas: [], commonIssues: [] };
@@ -154,6 +157,17 @@ function subscribeData(){
     renderAreaSelects();
     renderIssuePresetSelects();
     render();
+  });
+  unsubLastSeen = DB.onLastSeenChange(ts => {
+    if(ts === null){
+      // Never checked before — seed to "now" so the whole pre-existing
+      // backlog doesn't dump into the panel the first time this ships.
+      lastSeenAt = new Date().toISOString();
+      DB.markNotificationsSeen().catch(()=>{});
+    } else {
+      lastSeenAt = ts;
+    }
+    renderNotifications();
   });
 }
 
@@ -218,6 +232,95 @@ function renderStats(){
       <div class="stat-label">${escapeHtml(s)}</div>
     </div>
   `).join('');
+}
+
+// ---------------- notifications ----------------
+// In-app only: derived live from the jobs already synced, compared
+// against a per-person "last seen" watermark. Nothing is pushed while
+// the app is closed, but nothing is lost either — reopening the app
+// recomputes exactly what happened since last time, however long ago.
+
+function computeNotifications(){
+  if(!currentUser || !lastSeenAt) return [];
+  const since = new Date(lastSeenAt).getTime();
+  const items = [];
+
+  jobs.forEach(j=>{
+    // New job reported by someone else — surfaced to Maintenance.
+    if(currentRole === 'maintenance' && j.createdByUid && j.createdByUid !== currentUser.uid){
+      const t = new Date(j.dateLogged).getTime();
+      if(t > since){
+        items.push({
+          time: t, tag: 'New',
+          title: `Room ${j.room} — ${j.issue || '(no description)'}`,
+          meta: `Reported by ${j.createdByName || 'someone'} · ${fmtDateTime(j.dateLogged)}`,
+          job: j
+        });
+      }
+    }
+    // A job you logged was changed by someone else.
+    if(j.createdByUid === currentUser.uid && j.updatedByUid && j.updatedByUid !== currentUser.uid && j.updatedAt){
+      const t = new Date(j.updatedAt).getTime();
+      if(t > since){
+        items.push({
+          time: t, tag: 'Updated',
+          title: `Room ${j.room} — now ${j.status}`,
+          meta: `By ${j.updatedByName || 'someone'} · ${fmtDateTime(j.updatedAt)}`,
+          job: j
+        });
+      }
+    }
+  });
+
+  items.sort((a,b)=> b.time - a.time);
+  return items.slice(0, 20);
+}
+
+function renderNotifications(){
+  const items = computeNotifications();
+
+  const countEl = el('notifCount');
+  if(items.length > 0){
+    countEl.textContent = items.length > 9 ? '9+' : String(items.length);
+    countEl.classList.add('show');
+  } else {
+    countEl.classList.remove('show');
+  }
+
+  const list = el('notifList');
+  list.innerHTML = '';
+  if(items.length === 0){
+    list.innerHTML = `<div class="notif-empty">No new notifications</div>`;
+    return;
+  }
+  items.forEach(n=>{
+    const btn = document.createElement('button');
+    btn.className = 'notif-item';
+    btn.innerHTML = `
+      <span class="notif-tag">${escapeHtml(n.tag)}</span>
+      <span class="notif-body">
+        <div class="notif-title">${escapeHtml(n.title)}</div>
+        <div class="notif-meta">${escapeHtml(n.meta)}</div>
+      </span>
+    `;
+    btn.addEventListener('click', ()=>{
+      closeNotifPanel();
+      openJobSheet(n.job);
+    });
+    list.appendChild(btn);
+  });
+}
+
+function openNotifPanel(){
+  renderNotifications();
+  el('notifBackdrop').classList.add('open');
+}
+
+function closeNotifPanel(){
+  el('notifBackdrop').classList.remove('open');
+  // Mark as seen on close, not open — so the list doesn't empty out from
+  // under someone while they're still looking at what's new.
+  DB.markNotificationsSeen().catch(()=>{});
 }
 
 // ---------------- rendering: job list ----------------
@@ -586,6 +689,10 @@ el('showAllBtn').addEventListener('click', ()=>{
   render();
   toast('Showing all jobs');
 });
+
+el('notifBtn').addEventListener('click', openNotifPanel);
+el('notifCloseBtn').addEventListener('click', closeNotifPanel);
+el('notifBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='notifBackdrop') closeNotifPanel(); });
 
 el('settingsBtn').addEventListener('click', openSettings);
 el('closeSettingsBtn').addEventListener('click', async ()=>{

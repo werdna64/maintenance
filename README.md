@@ -168,6 +168,12 @@ working with no signal once it's loaded once.
   shortcut for the common cases.
 - Every job now shows who logged it (and, if different, who last updated
   it) — visible in the job list and in the job detail view.
+- The 🔔 in the header shows what's new since you last checked: for
+  Maintenance, jobs someone else has reported; for whoever logged a job,
+  any status change someone else made to it. It only updates while the
+  app is open — closing the app doesn't send an alert, but nothing is
+  lost either, since it's computed fresh from the real job data every
+  time you reopen it. Tap a notification to jump straight to that job.
 
 ## Adding someone new, or rotating/revoking a PIN
 
