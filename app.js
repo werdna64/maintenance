@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -181,8 +181,7 @@ function subscribeData(){
 // ---------------- rendering: header / chips ----------------
 
 function renderHeader(){
-  el('siteTitle').textContent = config.siteName || 'Room Jobs';
-  el('siteEyebrow').textContent = 'Facilities';
+  el('siteEyebrow').textContent = config.siteName ? `Maintenance · ${config.siteName}` : 'Maintenance';
 }
 
 function renderChips(){

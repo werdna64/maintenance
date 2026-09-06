@@ -2,7 +2,7 @@
 // version.json — app.js polls version.json to detect a stale build and
 // prompt a reload; this cache name is what actually makes the new files
 // take effect once that reload happens.
-const CACHE_NAME = 'room-jobs-0.1.0';
+const CACHE_NAME = 'room-jobs-0.1.1';
 const ASSETS = [
   './',
   './index.html',
