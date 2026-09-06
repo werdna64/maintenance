@@ -160,6 +160,10 @@ working with no signal once it's loaded once.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
+- Every new job starts as **Open**, no matter who creates it — the New
+  Job dialog doesn't offer a status choice at creation. Only Maintenance
+  can move a job through its statuses afterwards (the status pill on
+  each card, or editing the job).
 - ⚙ Settings → **Common Issues** is an optional list of recurring
   problems (e.g. "Bath plug missing", "Sink blocked", "TV remote
   missing") that shows up as a "Quick pick" dropdown when logging or

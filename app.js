@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.5';
+const APP_VERSION = '0.1.6';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -477,6 +477,9 @@ function openJobSheet(job){
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
+  // New jobs always start Open — status only becomes changeable once a
+  // job exists, and only maintenance can change it (cycle button or here).
+  el('statusField').style.display = job ? '' : 'none';
 
   if(job && job.createdByName){
     const createdLine = `Logged by ${job.createdByName} on ${fmtDateTime(job.dateLogged)}`;
@@ -565,13 +568,16 @@ async function handleSaveJob(){
   if(currentRole !== 'maintenance') return;
   const room = el('f_room').value.trim();
   if(!room){ toast('Room is required'); return; }
-  const status = el('f_status').value;
 
   const isNew = !editingId;
   let job = editingId ? jobs.find(j=>j.id===editingId) : null;
   if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
   }
+  // New jobs always start Open regardless of who's creating them — the
+  // status field is only shown (and only readable from f_status) when
+  // editing an existing job.
+  const status = isNew ? 'Open' : el('f_status').value;
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
