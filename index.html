@@ -59,7 +59,7 @@
 <!-- Login screen -->
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
-    <div class="login-eyebrow">Maintenance</div>
+    <div class="login-eyebrow" id="loginEyebrow">Loading…</div>
     <h1 class="login-title">Maintenance Tracker</h1>
 
     <div class="login-hint">Sign in</div>
@@ -150,7 +150,13 @@
     </div>
     <div class="field">
       <label>Notes</label>
-      <textarea id="f_notes" rows="2" placeholder="Optional running notes"></textarea>
+      <div id="notesList" class="notes-list"></div>
+      <div class="row2" id="addNoteRow">
+        <div class="field" style="margin-bottom:0; flex:1;">
+          <input id="f_newNote" type="text" placeholder="Add a note…">
+        </div>
+        <button class="btn btn-primary" id="addNoteBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+      </div>
     </div>
     <div class="audit-line" id="sheetAudit"></div>
     <div class="sheet-actions">

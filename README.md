@@ -168,10 +168,14 @@ working with no signal once it's loaded once.
   shortcut for the common cases.
 - Every job now shows who logged it and when (date + time), and who last
   updated it and when if that's different — visible in the job list
-  (compact) and the job detail view (full). Notes carry their own
-  signature too (who wrote/edited them, and when), separate from the
-  job's general update time, so editing a note doesn't get confused with
-  cycling status or vice versa.
+  (compact) and the job detail view (full).
+- Notes are a running, timestamped thread rather than one overwritable
+  text box — each note you add is its own entry, permanently signed
+  with who wrote it and when, so earlier notes never get lost or
+  silently replaced when someone adds a new one. Maintenance-only to
+  add (same as everything else editable); everyone can read the full
+  thread. The job list shows just the latest note as a preview
+  ("+N more" if there's a longer history) — open the job to see it all.
 - The 🔔 in the header shows what's new since you last checked: for
   Maintenance, jobs someone else has reported; for whoever logged a job,
   any status change someone else made to it. It only updates while the
@@ -229,6 +233,16 @@ The **stage** label (`APP_STAGE` in `app.js`, `"stage"` in
 `version.json`) doesn't need to change on every release — only bump it
 when you actually move to the next phase (e.g. handing it to Duncan and
 Lena for the first time = flip to Beta).
+
+### Don't forget the security rules
+
+Bumping the version only ships `app.js`/`index.html`/`style.css`/`db.js`.
+If a change also touched `firestore.rules` (a new collection, a
+permission change), that needs a **separate** manual step — paste the
+updated file into Firestore console → **Rules** → **Publish** (see
+"Deploy the security rules" above). Nothing enforces this automatically;
+forgetting it means the code expects a permission the server doesn't
+actually grant yet.
 
 ## Backing up your data
 

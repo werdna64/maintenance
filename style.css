@@ -164,6 +164,15 @@ header h1{
 .notes{font-size:12.5px; color:var(--ink-soft); margin-top:6px; line-height:1.4;}
 .notes-meta{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#a3aab8; font-style:italic;}
 
+.notes-list{max-height:200px; overflow-y:auto; margin-bottom:8px;}
+.note-entry{
+  background:#fff; border:1.5px solid var(--line); border-radius:10px;
+  padding:9px 11px; margin-bottom:7px;
+}
+.note-entry .note-text{font-size:13.5px; color:var(--ink); line-height:1.4;}
+.note-entry .notes-meta{display:block; margin-top:4px; font-style:normal;}
+.notes-empty{font-size:12.5px; color:var(--ink-soft); padding:6px 2px; margin-bottom:8px;}
+
 .status-btn{
   flex:0 0 auto; border:none; border-radius:8px; padding:7px 10px;
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;

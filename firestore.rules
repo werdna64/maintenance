@@ -50,8 +50,11 @@ service cloud.firestore {
       allow write: if isMaintenance();
     }
 
+    // Public read so the site name can show on the login screen before
+    // anyone signs in — it's a hotel name, not sensitive. Still
+    // maintenance-only to write.
     match /config/{doc} {
-      allow read: if signedIn();
+      allow read: if true;
       allow write: if isMaintenance();
     }
 

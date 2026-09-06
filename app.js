@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.1.5';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -20,7 +20,7 @@ let currentUser = null;   // { uid, role, name }
 let sheetReadOnly = false;
 let lastSeenAt = null;
 
-let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null;
+let unsubJobs = null, unsubRooms = null, unsubLastSeen = null;
 
 const el = id => document.getElementById(id);
 
@@ -56,6 +56,23 @@ function uid(prefix){
 function roomArea(roomNumber){
   const r = rooms.find(r => r.number === roomNumber);
   return r ? r.area : 'Unassigned';
+}
+
+// Notes used to be a single overwritable string; they're now a list of
+// individually-signed entries. This reads either shape as a normalized
+// array without touching the job — jobs migrate to the new shape the
+// next time a note is actually added to them.
+function normalizeNotes(job){
+  if(Array.isArray(job.notes)) return job.notes;
+  if(typeof job.notes === 'string' && job.notes.trim()){
+    return [{
+      text: job.notes,
+      authorName: job.notesUpdatedByName || job.createdByName || '',
+      authorUid: job.notesUpdatedByUid || job.createdByUid || '',
+      createdAt: job.notesUpdatedAt || job.dateLogged
+    }];
+  }
+  return [];
 }
 
 // ---------------- version check ----------------
@@ -126,9 +143,8 @@ async function handleLogin(){
 async function handleLogout(){
   if(unsubJobs) unsubJobs();
   if(unsubRooms) unsubRooms();
-  if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
-  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = null;
+  unsubJobs = unsubRooms = unsubLastSeen = null;
   lastSeenAt = null;
   await DB.signOut();
 }
@@ -151,18 +167,27 @@ function applyRolePermissions(role){
 
 // ---------------- realtime data wiring ----------------
 
-function subscribeData(){
-  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
-  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
-  unsubConfig = DB.onConfigChange(cfg => {
+// Config (site name, areas, common issues) is public-read and loads
+// independently of sign-in, so the site name can show on the login
+// screen before anyone's authenticated. Started once at app startup —
+// never torn down on logout, unlike jobs/rooms/notifications which do
+// require an authenticated role.
+function subscribeConfig(){
+  DB.onConfigChange(cfg => {
     config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
     if(!config.areas) config.areas = [];
     if(!config.commonIssues) config.commonIssues = [];
+    el('loginEyebrow').textContent = config.siteName || 'Maintenance Tracker';
     renderHeader();
     renderAreaSelects();
     renderIssuePresetSelects();
     render();
   });
+}
+
+function subscribeData(){
+  unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
+  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubLastSeen = DB.onLastSeenChange(ts => {
     if(ts === null){
       // Never checked before — seed to "now" so the whole pre-existing
@@ -378,6 +403,8 @@ function render(){
         card.className = 'card';
         const statusClass = 'status-' + j.status.replace(/ /g,'-');
         const canEdit = currentRole === 'maintenance';
+        const noteEntries = normalizeNotes(j);
+        const lastNote = noteEntries[noteEntries.length - 1];
         card.innerHTML = `
           <div class="plaque">${escapeHtml(j.room)}</div>
           <div class="card-body">
@@ -394,11 +421,10 @@ function render(){
               ${(j.updatedByName && j.updatedAt && j.updatedAt !== j.dateLogged)
                 ? `<div>Updated ${fmtDateTime(j.updatedAt)} · ${escapeHtml(j.updatedByName)}</div>` : ''}
             </div>
-            ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}${
-              j.notesUpdatedByName
-                ? ` <span class="notes-meta">— ${escapeHtml(j.notesUpdatedByName)}, ${fmtDateTime(j.notesUpdatedAt)}</span>`
-                : ''
-            }</div>` : ''}
+            ${lastNote ? `<div class="notes">${escapeHtml(lastNote.text)}
+              <span class="notes-meta">— ${escapeHtml(lastNote.authorName || 'someone')}, ${fmtDateTime(lastNote.createdAt)}</span>
+              ${noteEntries.length > 1 ? `<span class="notes-meta"> (+${noteEntries.length - 1} more)</span>` : ''}
+            </div>` : ''}
           </div>
         `;
         card.querySelector('.card-body').addEventListener('click', (e)=>{
@@ -451,21 +477,22 @@ function openJobSheet(job){
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
-  el('f_notes').value = job ? (job.notes||'') : '';
 
   if(job && job.createdByName){
     const createdLine = `Logged by ${job.createdByName} on ${fmtDateTime(job.dateLogged)}`;
     const hasUpdate = job.updatedByName && job.updatedAt && job.updatedAt !== job.dateLogged;
     const updatedLine = hasUpdate
       ? ` · Updated by ${job.updatedByName} on ${fmtDateTime(job.updatedAt)}` : '';
-    const notesLine = job.notesUpdatedByName
-      ? ` · Notes by ${job.notesUpdatedByName} on ${fmtDateTime(job.notesUpdatedAt)}` : '';
-    el('sheetAudit').textContent = createdLine + updatedLine + notesLine;
+    el('sheetAudit').textContent = createdLine + updatedLine;
   } else {
     el('sheetAudit').textContent = '';
   }
 
-  ['f_room','f_issuePreset','f_issue','f_status','f_notes'].forEach(id=>{
+  renderNotesList(job);
+  el('f_newNote').value = '';
+  el('addNoteRow').style.display = (job && canEdit) ? 'flex' : 'none';
+
+  ['f_room','f_issuePreset','f_issue','f_status'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
   el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
@@ -478,6 +505,44 @@ function openJobSheet(job){
 function closeJobSheet(){
   el('sheetBackdrop').classList.remove('open');
   editingId = null;
+}
+
+function renderNotesList(job){
+  const wrap = el('notesList');
+  const entries = job ? normalizeNotes(job) : [];
+  if(entries.length === 0){
+    wrap.innerHTML = `<div class="notes-empty">No notes yet</div>`;
+    return;
+  }
+  wrap.innerHTML = entries.map(n => `
+    <div class="note-entry">
+      <div class="note-text">${escapeHtml(n.text)}</div>
+      <div class="notes-meta">${escapeHtml(n.authorName || 'someone')}, ${fmtDateTime(n.createdAt)}</div>
+    </div>
+  `).join('');
+}
+
+async function handleAddNote(){
+  if(currentRole !== 'maintenance' || !editingId) return;
+  const text = el('f_newNote').value.trim();
+  if(!text) return;
+  const job = jobs.find(j=>j.id===editingId);
+  if(!job) return;
+
+  const notes = normalizeNotes(job);
+  notes.push({
+    text,
+    authorUid: currentUser.uid,
+    authorName: currentUser.name,
+    createdAt: new Date().toISOString()
+  });
+  job.notes = notes;
+  stampAudit(job, false);
+
+  await DB.putJob(job);
+  el('f_newNote').value = '';
+  renderNotesList(job);
+  toast('Note added');
 }
 
 async function ensureRoomExists(number, area){
@@ -507,18 +572,11 @@ async function handleSaveJob(){
   if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
   }
-  const previousNotes = job.notes || '';
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
-  job.notes = el('f_notes').value.trim();
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
   stampAudit(job, isNew);
-  if(job.notes !== previousNotes){
-    job.notesUpdatedAt = job.updatedAt;
-    job.notesUpdatedByUid = job.updatedByUid;
-    job.notesUpdatedByName = job.updatedByName;
-  }
 
   await DB.putJob(job);
   closeJobSheet();
@@ -679,6 +737,8 @@ el('f_issuePreset').addEventListener('change', ()=>{
 });
 el('cancelBtn').addEventListener('click', closeJobSheet);
 el('saveBtn').addEventListener('click', handleSaveJob);
+el('addNoteBtn').addEventListener('click', handleAddNote);
+el('f_newNote').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleAddNote(); } });
 el('deleteBtn').addEventListener('click', handleDeleteJob);
 el('sheetBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
@@ -716,6 +776,7 @@ el('s_siteName').addEventListener('blur', handleSaveSiteName);
 // ---------------- init ----------------
 
 renderChips();
+subscribeConfig();
 
 DB.onAuthChange((user)=>{
   if(user){
