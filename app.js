@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.2';
+const APP_VERSION = '0.1.3';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -147,8 +147,6 @@ function applyRolePermissions(role){
   } else {
     el('fabAdd').style.display = 'none';
   }
-
-  el('statsBar').style.display = (role === 'management') ? 'flex' : 'none';
 }
 
 // ---------------- realtime data wiring ----------------
@@ -181,7 +179,7 @@ function subscribeData(){
 // ---------------- rendering: header / chips ----------------
 
 function renderHeader(){
-  el('siteEyebrow').textContent = config.siteName ? `Maintenance · ${config.siteName}` : 'Maintenance';
+  el('siteTitle').textContent = config.siteName ? `Maintenance Tracker @ ${config.siteName}` : 'Maintenance Tracker';
 }
 
 function renderChips(){
@@ -226,18 +224,6 @@ function renderRoomSelect(){
   const currentJobRoom = el('f_room').value;
   el('f_room').innerHTML = options;
   if(sorted.some(r=>r.number === currentJobRoom)) el('f_room').value = currentJobRoom;
-}
-
-function renderStats(){
-  if(el('statsBar').style.display === 'none') return;
-  const counts = { Open:0, "In Progress":0, "Awaiting Parts":0, Done:0 };
-  jobs.forEach(j=>{ if(counts[j.status] !== undefined) counts[j.status]++; });
-  el('statsBar').innerHTML = STATUSES.map(s=>`
-    <div class="stat-tile">
-      <div class="stat-num">${counts[s]}</div>
-      <div class="stat-label">${escapeHtml(s)}</div>
-    </div>
-  `).join('');
 }
 
 // ---------------- notifications ----------------
@@ -332,8 +318,6 @@ function closeNotifPanel(){
 // ---------------- rendering: job list ----------------
 
 function render(){
-  renderStats();
-
   const q = el('searchInput').value.trim().toLowerCase();
   let filtered = jobs.filter(j=>{
     if(activeFilter !== 'All' && j.status !== activeFilter) return false;
@@ -347,10 +331,14 @@ function render(){
     return (b.dateLogged||'').localeCompare(a.dateLogged||'');
   });
 
-  const openCount = jobs.filter(j=>j.status!=='Done').length;
-  el('summaryLine').textContent = jobs.length===0
-    ? 'No jobs logged yet'
-    : `${openCount} open · ${jobs.length} total`;
+  if(jobs.length === 0){
+    el('summaryLine').textContent = 'No jobs logged yet';
+  } else {
+    const counts = { Open:0, "In Progress":0, "Awaiting Parts":0, Done:0 };
+    jobs.forEach(j=>{ if(counts[j.status] !== undefined) counts[j.status]++; });
+    el('summaryLine').textContent =
+      `${counts.Open} Open · ${counts["In Progress"]} In Progress · ${counts["Awaiting Parts"]} Awaiting Parts · ${counts.Done} Done`;
+  }
 
   const list = el('list');
   list.innerHTML = '';
@@ -753,7 +741,6 @@ if('serviceWorker' in navigator){
 el('updateReloadBtn').addEventListener('click', reloadForUpdate);
 
 el('versionTagLogin').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
-el('versionTagHeader').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
 
 checkForUpdate();
 setInterval(checkForUpdate, 15 * 60 * 1000); // catch a deploy while the app is left open
