@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '11';
+const APP_VERSION = '12';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -276,16 +276,18 @@ function render(){
         card.innerHTML = `
           <div class="plaque">${escapeHtml(j.room)}</div>
           <div class="card-body">
-            <div class="issue">${escapeHtml(j.issue || '(no description)')}</div>
+            <div class="card-top">
+              <div class="issue">${escapeHtml(j.issue || '(no description)')}</div>
+              ${canEdit
+                ? `<button class="status-btn ${statusClass}" data-id="${j.id}">${j.status}</button>`
+                : `<span class="status-badge ${statusClass}">${j.status}</span>`}
+            </div>
             <div class="meta">
               <span>${fmtDate(j.dateLogged)}</span>
               ${j.createdByName ? `<span>${escapeHtml(j.createdByName)}</span>` : ''}
               ${j.status==='Done' && j.dateClosed ? `<span>Closed ${fmtDate(j.dateClosed)}</span>` : ''}
             </div>
             ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}</div>` : ''}
-            ${canEdit
-              ? `<button class="status-btn ${statusClass}" data-id="${j.id}">${j.status}</button>`
-              : `<span class="status-badge ${statusClass}">${j.status}</span>`}
           </div>
         `;
         card.querySelector('.card-body').addEventListener('click', (e)=>{

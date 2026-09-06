@@ -139,15 +139,16 @@ header .sub{font-size:12.5px; color:#b9c2d4; margin-top:2px;}
   border:2px solid var(--plaque-brass); letter-spacing:-.02em; text-align:center;
 }
 .card-body{flex:1; min-width:0;}
+.card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
 .issue{font-size:14.5px; font-weight:600; line-height:1.35; color:var(--ink);}
 .meta{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); margin-top:5px;}
 .meta span{margin-right:10px;}
 .notes{font-size:12.5px; color:var(--ink-soft); margin-top:6px; line-height:1.4;}
 
 .status-btn{
-  border:none; border-radius:8px; padding:7px 10px; margin-top:8px;
+  flex:0 0 auto; border:none; border-radius:8px; padding:7px 10px;
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
-  letter-spacing:.03em; text-transform:uppercase; cursor:pointer;
+  letter-spacing:.03em; text-transform:uppercase; cursor:pointer; white-space:nowrap;
 }
 .status-Open{color:var(--open); background:var(--open-bg);}
 .status-In-Progress{color:var(--progress); background:var(--progress-bg);}
@@ -155,9 +156,9 @@ header .sub{font-size:12.5px; color:#b9c2d4; margin-top:2px;}
 .status-Done{color:var(--done); background:var(--done-bg);}
 
 .status-badge{
-  display:inline-block; border-radius:8px; padding:7px 10px; margin-top:8px;
+  flex:0 0 auto; display:inline-block; border-radius:8px; padding:7px 10px;
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
-  letter-spacing:.03em; text-transform:uppercase;
+  letter-spacing:.03em; text-transform:uppercase; white-space:nowrap;
 }
 
 .empty{text-align:center; padding:60px 20px; color:var(--ink-soft);}
