@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '9';
+const APP_VERSION = '10';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -567,6 +567,9 @@ if('serviceWorker' in navigator){
 }
 
 el('updateReloadBtn').addEventListener('click', reloadForUpdate);
+
+el('versionTagLogin').textContent = `v${APP_VERSION}`;
+el('versionTagHeader').textContent = `v${APP_VERSION}`;
 
 checkForUpdate();
 setInterval(checkForUpdate, 15 * 60 * 1000); // catch a deploy while the app is left open
