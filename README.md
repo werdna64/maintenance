@@ -166,8 +166,12 @@ working with no signal once it's loaded once.
   reporting a job — pick one to fill the issue text instantly, or leave
   it on "Other" and type your own. Nobody has to use it; it's purely a
   shortcut for the common cases.
-- Every job now shows who logged it (and, if different, who last updated
-  it) — visible in the job list and in the job detail view.
+- Every job now shows who logged it and when (date + time), and who last
+  updated it and when if that's different — visible in the job list
+  (compact) and the job detail view (full). Notes carry their own
+  signature too (who wrote/edited them, and when), separate from the
+  job's general update time, so editing a note doesn't get confused with
+  cycling status or vice versa.
 - The 🔔 in the header shows what's new since you last checked: for
   Maintenance, jobs someone else has reported; for whoever logged a job,
   any status change someone else made to it. It only updates while the

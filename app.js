@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '15';
+const APP_VERSION = '16';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -394,11 +394,17 @@ function render(){
                 : `<span class="status-badge ${statusClass}">${j.status}</span>`}
             </div>
             <div class="meta">
-              <span>${fmtDate(j.dateLogged)}</span>
-              ${j.createdByName ? `<span>${escapeHtml(j.createdByName)}</span>` : ''}
-              ${j.status==='Done' && j.dateClosed ? `<span>Closed ${fmtDate(j.dateClosed)}</span>` : ''}
+              ${j.createdByName
+                ? `<div>Logged ${fmtDateTime(j.dateLogged)} · ${escapeHtml(j.createdByName)}</div>`
+                : `<div>${fmtDateTime(j.dateLogged)}</div>`}
+              ${(j.updatedByName && j.updatedAt && j.updatedAt !== j.dateLogged)
+                ? `<div>Updated ${fmtDateTime(j.updatedAt)} · ${escapeHtml(j.updatedByName)}</div>` : ''}
             </div>
-            ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}</div>` : ''}
+            ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}${
+              j.notesUpdatedByName
+                ? ` <span class="notes-meta">— ${escapeHtml(j.notesUpdatedByName)}, ${fmtDateTime(j.notesUpdatedAt)}</span>`
+                : ''
+            }</div>` : ''}
           </div>
         `;
         card.querySelector('.card-body').addEventListener('click', (e)=>{
@@ -458,7 +464,9 @@ function openJobSheet(job){
     const hasUpdate = job.updatedByName && job.updatedAt && job.updatedAt !== job.dateLogged;
     const updatedLine = hasUpdate
       ? ` · Updated by ${job.updatedByName} on ${fmtDateTime(job.updatedAt)}` : '';
-    el('sheetAudit').textContent = createdLine + updatedLine;
+    const notesLine = job.notesUpdatedByName
+      ? ` · Notes by ${job.notesUpdatedByName} on ${fmtDateTime(job.notesUpdatedAt)}` : '';
+    el('sheetAudit').textContent = createdLine + updatedLine + notesLine;
   } else {
     el('sheetAudit').textContent = '';
   }
@@ -505,12 +513,18 @@ async function handleSaveJob(){
   if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
   }
+  const previousNotes = job.notes || '';
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
   job.notes = el('f_notes').value.trim();
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
   stampAudit(job, isNew);
+  if(job.notes !== previousNotes){
+    job.notesUpdatedAt = job.updatedAt;
+    job.notesUpdatedByUid = job.updatedByUid;
+    job.notesUpdatedByName = job.updatedByName;
+  }
 
   await DB.putJob(job);
   closeJobSheet();
