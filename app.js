@@ -7,7 +7,7 @@ let config = { siteName: "Room Jobs", areas: [] };
 let activeFilter = "All";
 let editingId = null;
 let currentRole = null;
-let pendingRole = null;   // role chosen on the login screen, awaiting PIN
+let currentUser = null;   // { uid, role, name }
 let sheetReadOnly = false;
 
 let unsubJobs = null, unsubRooms = null, unsubConfig = null;
@@ -42,33 +42,22 @@ function roomArea(roomNumber){
 
 // ---------------- login ----------------
 
-function showRoleStep(){
-  pendingRole = null;
+function resetLoginForm(){
+  el('usernameInput').value = '';
   el('pinInput').value = '';
   el('loginError').textContent = '';
-  el('roleStep').style.display = '';
-  el('pinStep').style.display = 'none';
 }
 
-function showPinStep(role){
-  pendingRole = role;
-  el('pinRoleLabel').textContent = `Enter the ${role[0].toUpperCase()+role.slice(1)} PIN`;
-  el('loginError').textContent = '';
-  el('pinInput').value = '';
-  el('roleStep').style.display = 'none';
-  el('pinStep').style.display = '';
-  el('pinInput').focus();
-}
-
-async function handlePinSubmit(){
+async function handleLogin(){
+  const username = el('usernameInput').value.trim();
   const pin = el('pinInput').value.trim();
-  if(!pin){ el('loginError').textContent = 'Enter a PIN.'; return; }
+  if(!username || !pin){ el('loginError').textContent = 'Enter your username and PIN.'; return; }
   el('pinSubmitBtn').disabled = true;
   try{
-    await DB.signIn(pendingRole, pin);
+    await DB.signIn(username, pin);
     // DB.onAuthChange fires and drives the rest of the UI switch.
   }catch(e){
-    el('loginError').textContent = 'Incorrect PIN. Try again.';
+    el('loginError').textContent = 'Incorrect username or PIN.';
   }finally{
     el('pinSubmitBtn').disabled = false;
   }
@@ -83,7 +72,8 @@ async function handleLogout(){
 }
 
 function applyRolePermissions(role){
-  el('roleBadge').textContent = role[0].toUpperCase()+role.slice(1);
+  const roleLabel = role[0].toUpperCase()+role.slice(1);
+  el('roleBadge').textContent = currentUser.name ? `${currentUser.name} · ${roleLabel}` : roleLabel;
   el('settingsBtn').style.display = (role === 'maintenance') ? '' : 'none';
 
   if(role === 'maintenance'){
@@ -236,7 +226,7 @@ function render(){
             <div class="issue">${escapeHtml(j.issue || '(no description)')}</div>
             <div class="meta">
               <span>${fmtDate(j.dateLogged)}</span>
-              ${j.loggedBy ? `<span>${escapeHtml(j.loggedBy)}</span>` : ''}
+              ${j.createdByName ? `<span>${escapeHtml(j.createdByName)}</span>` : ''}
               ${j.status==='Done' && j.dateClosed ? `<span>Closed ${fmtDate(j.dateClosed)}</span>` : ''}
             </div>
             ${j.notes ? `<div class="notes">${escapeHtml(j.notes)}</div>` : ''}
@@ -263,11 +253,21 @@ function render(){
   });
 }
 
+function stampAudit(job, isNew){
+  job.updatedByUid = currentUser.uid;
+  job.updatedByName = currentUser.name;
+  if(isNew){
+    job.createdByUid = currentUser.uid;
+    job.createdByName = currentUser.name;
+  }
+}
+
 async function cycleStatus(j){
   if(currentRole !== 'maintenance') return;
   const idx = STATUSES.indexOf(j.status);
   j.status = STATUSES[(idx+1) % STATUSES.length];
   j.dateClosed = (j.status === 'Done') ? new Date().toISOString() : '';
+  stampAudit(j, false);
   await DB.putJob(j);
   toast(`${j.room} → ${j.status}`);
 }
@@ -283,10 +283,18 @@ function openJobSheet(job){
   el('f_area').value = job ? roomArea(job.room) : '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
-  el('f_loggedBy').value = job ? (job.loggedBy||'') : '';
   el('f_notes').value = job ? (job.notes||'') : '';
 
-  ['f_room','f_issue','f_status','f_loggedBy','f_notes'].forEach(id=>{
+  if(job && job.createdByName){
+    const createdLine = `Logged by ${job.createdByName} on ${fmtDate(job.dateLogged)}`;
+    const updatedLine = (job.updatedByName && job.updatedByName !== job.createdByName)
+      ? ` · Last updated by ${job.updatedByName}` : '';
+    el('sheetAudit').textContent = createdLine + updatedLine;
+  } else {
+    el('sheetAudit').textContent = '';
+  }
+
+  ['f_room','f_issue','f_status','f_notes'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
   el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
@@ -323,6 +331,7 @@ async function handleSaveJob(){
   if(!room){ toast('Room is required'); return; }
   const status = el('f_status').value;
 
+  const isNew = !editingId;
   let job = editingId ? jobs.find(j=>j.id===editingId) : null;
   if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
@@ -330,9 +339,9 @@ async function handleSaveJob(){
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
-  job.loggedBy = el('f_loggedBy').value.trim();
   job.notes = el('f_notes').value.trim();
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
+  stampAudit(job, isNew);
 
   await DB.putJob(job);
   closeJobSheet();
@@ -351,7 +360,6 @@ async function handleDeleteJob(){
 function openReportSheet(){
   el('r_room').value = '';
   el('r_issue').value = '';
-  el('r_reportedBy').value = '';
   el('reportBackdrop').classList.add('open');
 }
 
@@ -364,18 +372,17 @@ async function handleSubmitReport(){
   if(!room){ toast('Select a room'); return; }
   const issue = el('r_issue').value.trim();
   if(!issue){ toast('Describe the problem'); return; }
-  const reportedBy = el('r_reportedBy').value.trim();
 
   const job = {
     id: uid('j'),
     room,
     issue,
     status: 'Open',
-    loggedBy: reportedBy,
     notes: '',
     dateLogged: new Date().toISOString(),
     dateClosed: ''
   };
+  stampAudit(job, true);
   await DB.putJob(job);
   closeReportSheet();
   toast('Reported — thanks!');
@@ -453,12 +460,9 @@ async function handleSaveSiteName(){
 
 // ---------------- wiring ----------------
 
-el('roleStep').querySelectorAll('.role-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>showPinStep(btn.dataset.role));
-});
-el('pinBackBtn').addEventListener('click', showRoleStep);
-el('pinSubmitBtn').addEventListener('click', handlePinSubmit);
-el('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') handlePinSubmit(); });
+el('pinSubmitBtn').addEventListener('click', handleLogin);
+el('usernameInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus(); });
+el('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
 el('logoutBtn').addEventListener('click', handleLogout);
 
 el('f_room').addEventListener('change', ()=>{
@@ -497,18 +501,20 @@ el('s_siteName').addEventListener('blur', handleSaveSiteName);
 
 renderChips();
 
-DB.onAuthChange((role)=>{
-  if(role){
-    currentRole = role;
+DB.onAuthChange((user)=>{
+  if(user){
+    currentUser = user;
+    currentRole = user.role;
     el('loginScreen').style.display = 'none';
     el('appRoot').style.display = '';
-    applyRolePermissions(role);
+    applyRolePermissions(currentRole);
     subscribeData();
   } else {
+    currentUser = null;
     currentRole = null;
     el('appRoot').style.display = 'none';
     el('loginScreen').style.display = '';
-    showRoleStep();
+    resetLoginForm();
   }
 });
 

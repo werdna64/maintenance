@@ -1,9 +1,10 @@
 rules_version = '2';
 
 // Deploy with: firebase deploy --only firestore:rules
-// (see README.md for full setup). Roles are assigned by writing a
-// document to /roles/{uid} from the Firebase console — never from the
-// app itself, so a signed-in user can never grant themselves a role.
+// (see README.md for full setup). Each person's role and display name
+// are set by writing a document to /users/{uid} from the Firebase
+// console — never from the app itself, so a signed-in user can never
+// grant themselves a role or rename themselves.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -13,7 +14,7 @@ service cloud.firestore {
     }
 
     function role() {
-      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
     function isMaintenance() {
@@ -24,10 +25,11 @@ service cloud.firestore {
       return signedIn() && role() == 'housekeeping';
     }
 
-    // Each of the three fixed accounts has a /roles/{uid} doc naming its
-    // role. Only that account can read its own doc; nobody can write one
-    // from the client — roles are set by hand in the Firebase console.
-    match /roles/{uid} {
+    // Each person's account has a /users/{uid} doc naming their role and
+    // display name. Only that account can read its own doc; nobody can
+    // write one from the client — accounts are set up by hand in the
+    // Firebase console.
+    match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
     }

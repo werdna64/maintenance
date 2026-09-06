@@ -20,13 +20,3 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "REPLACE_ME",
   appId: "REPLACE_ME"
 };
-
-/* The three fixed role accounts this app signs in as. The "email" is just
-   an identifier Firebase Auth requires — it never needs to receive mail.
-   Keep these in sync with the accounts you create in the Firebase console
-   (see README.md → "Create the three role accounts"). */
-window.ROLE_ACCOUNTS = {
-  maintenance: "maintenance@site.local",
-  housekeeping: "housekeeping@site.local",
-  management: "management@site.local"
-};

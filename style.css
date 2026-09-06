@@ -59,12 +59,10 @@ header .sub{font-size:12.5px; color:#b9c2d4; margin-top:2px;}
   font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em;
   text-transform:uppercase; color:var(--ink-soft); margin-bottom:12px; text-align:center;
 }
-.role-grid{display:flex; flex-direction:column; gap:10px;}
-.role-btn{
-  padding:14px; border-radius:12px; border:1.5px solid var(--line); background:#fff;
-  color:var(--ink); font-size:15.5px; font-weight:600; cursor:pointer;
+.text-input{
+  width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--line);
+  font-size:16px; background:#fff; margin-bottom:10px; font-family:'IBM Plex Sans',sans-serif;
 }
-.role-btn:active{background:var(--plaque); color:#fff; border-color:var(--plaque);}
 .pin-input{
   width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--line);
   font-size:22px; letter-spacing:.3em; text-align:center; background:#fff; margin-bottom:10px;
@@ -174,6 +172,10 @@ header .sub{font-size:12.5px; color:#b9c2d4; margin-top:2px;}
 }
 .field input:disabled, .field textarea:disabled, .field select:disabled{
   background:var(--paper); color:var(--ink-soft); -webkit-text-fill-color:var(--ink-soft); opacity:1;
+}
+.audit-line{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);
+  margin:-4px 0 12px;
 }
 .row2{display:flex; gap:10px;}
 .row2 .field{flex:1;}

@@ -1,11 +1,13 @@
 /* db.js — Firebase-backed auth + data layer.
 
-   Auth: there are three fixed accounts (maintenance / housekeeping /
-   management), one per role — see firebase-config.js (ROLE_ACCOUNTS) and
-   README.md. "Logging in" from the app's point of view is picking a role
-   and typing that role's PIN; under the hood this is a real Firebase
-   email+password sign-in, so Firebase's own throttling/hashing applies —
-   this file never sees or stores a password itself.
+   Auth: every person gets their own account — a username and a personal
+   PIN. "Username" maps to a Firebase email identifier
+   (username@EMAIL_DOMAIN below) that never needs to receive real mail;
+   under the hood this is a real Firebase email+password sign-in, so
+   Firebase's own throttling/hashing applies — this file never sees or
+   stores a PIN itself. Each account's role (maintenance / housekeeping /
+   management) and display name live in /users/{uid} in Firestore — see
+   README.md for how to create a new person's account.
 
    Data: jobs / rooms / config live in Firestore and sync in realtime to
    every signed-in device. Firestore's own offline cache (enabled below)
@@ -13,11 +15,17 @@
    version did — writes made offline queue and flush when back online.
 
    Access control is NOT enforced here — it's enforced server-side by
-   firestore.rules, keyed on the role recorded in /roles/{uid}. Treat any
+   firestore.rules, keyed on the role recorded in /users/{uid}. Treat any
    UI-level restriction in app.js as a convenience, not the security
    boundary. */
 
 (function(){
+
+const EMAIL_DOMAIN = 'site.local';
+
+function usernameToEmail(username) {
+  return username.trim().toLowerCase().replace(/\s+/g, '.') + '@' + EMAIL_DOMAIN;
+}
 
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const auth = firebase.auth();
@@ -29,48 +37,49 @@ firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {
   // works, just without the offline cache.
 });
 
-let currentRole = null;
+let currentUser = null; // { uid, role, name }
 
 const DB = {
   // ---- auth ----
-  async signIn(role, pin) {
-    const email = (window.ROLE_ACCOUNTS || {})[role];
-    if (!email) throw new Error('Unknown role: ' + role);
-    await auth.signInWithEmailAndPassword(email, pin);
+  async signIn(username, pin) {
+    await auth.signInWithEmailAndPassword(usernameToEmail(username), pin);
   },
 
   async signOut() {
-    currentRole = null;
+    currentUser = null;
     await auth.signOut();
   },
 
-  getRole() {
-    return currentRole;
+  getCurrentUser() {
+    return currentUser;
   },
 
   // Fires once at startup and again on every sign-in/sign-out.
-  // callback(role|null, user|null)
+  // callback({ uid, role, name } | null)
   onAuthChange(callback) {
     auth.onAuthStateChanged(async (user) => {
       if (!user) {
-        currentRole = null;
-        callback(null, null);
+        currentUser = null;
+        callback(null);
         return;
       }
+      let profile = null;
       try {
-        const doc = await firestore.collection('roles').doc(user.uid).get();
-        currentRole = doc.exists ? doc.data().role : null;
+        const doc = await firestore.collection('users').doc(user.uid).get();
+        profile = doc.exists ? doc.data() : null;
       } catch (e) {
-        currentRole = null;
+        profile = null;
       }
-      if (!currentRole) {
-        // Signed in with Firebase but no role assigned (e.g. account set
-        // up but the /roles doc wasn't created yet) — treat as logged out.
+      if (!profile || !profile.role) {
+        // Signed in with Firebase but no profile/role set up yet (e.g.
+        // account created but the /users doc wasn't added) — treat as
+        // logged out rather than letting them in with no permissions.
         await auth.signOut();
-        callback(null, null);
+        callback(null);
         return;
       }
-      callback(currentRole, user);
+      currentUser = { uid: user.uid, role: profile.role, name: profile.name || '' };
+      callback(currentUser);
     });
   },
 

@@ -17,23 +17,12 @@
     <div class="login-eyebrow">Facilities</div>
     <h1 class="login-title">Room Jobs</h1>
 
-    <div id="roleStep">
-      <div class="login-hint">Who's signing in?</div>
-      <div class="role-grid">
-        <button class="role-btn" data-role="maintenance">Maintenance</button>
-        <button class="role-btn" data-role="housekeeping">Housekeeping</button>
-        <button class="role-btn" data-role="management">Management</button>
-      </div>
-    </div>
-
-    <div id="pinStep" style="display:none;">
-      <div class="login-hint" id="pinRoleLabel">Enter the Maintenance PIN</div>
-      <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
-      <div class="login-error" id="loginError"></div>
-      <div class="login-actions">
-        <button class="btn btn-ghost" id="pinBackBtn">Back</button>
-        <button class="btn btn-primary" id="pinSubmitBtn">Sign in</button>
-      </div>
+    <div class="login-hint">Sign in</div>
+    <input id="usernameInput" class="text-input" type="text" autocomplete="username" placeholder="Username" autocapitalize="off" autocorrect="off">
+    <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+    <div class="login-error" id="loginError"></div>
+    <div class="login-actions">
+      <button class="btn btn-primary" id="pinSubmitBtn" style="flex:1;">Sign in</button>
     </div>
   </div>
 </div>
@@ -90,25 +79,20 @@
       <label>Issue</label>
       <textarea id="f_issue" rows="3" placeholder="e.g. Replace room controller — repeated P10 comms faults"></textarea>
     </div>
-    <div class="row2">
-      <div class="field">
-        <label>Status</label>
-        <select id="f_status">
-          <option>Open</option>
-          <option>In Progress</option>
-          <option>Awaiting Parts</option>
-          <option>Done</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Logged by</label>
-        <input id="f_loggedBy" type="text" placeholder="Optional">
-      </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="f_status">
+        <option>Open</option>
+        <option>In Progress</option>
+        <option>Awaiting Parts</option>
+        <option>Done</option>
+      </select>
     </div>
     <div class="field">
       <label>Notes</label>
       <textarea id="f_notes" rows="2" placeholder="Optional running notes"></textarea>
     </div>
+    <div class="audit-line" id="sheetAudit"></div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="cancelBtn">Close</button>
       <button class="btn btn-danger" id="deleteBtn" style="display:none;">Delete</button>
@@ -130,10 +114,6 @@
     <div class="field">
       <label>What's wrong?</label>
       <textarea id="r_issue" rows="3" placeholder="Describe the problem"></textarea>
-    </div>
-    <div class="field">
-      <label>Reported by</label>
-      <input id="r_reportedBy" type="text" placeholder="Your name">
     </div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="reportCancelBtn">Cancel</button>

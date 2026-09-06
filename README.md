@@ -7,10 +7,15 @@ data syncs the moment a signal comes back.
 
 ## Who uses it, and what they can do
 
-Three roles, each with its own PIN. Under the hood each role is a real
-Firebase account — the PIN is just that account's password — so every
-device's access is enforced by the server (Firestore security rules), not
-just hidden in the app's UI.
+Every person gets their own account — a **username and a personal PIN**.
+Under the hood each account is a real Firebase account, so device access
+is enforced by the server (Firestore security rules) using the account's
+assigned role, not just hidden in the app's UI. Because everyone signs in
+as themselves, every job records who actually logged it, updated it, or
+closed it — a real audit trail, not a free-text field anyone could fill
+in with anything.
+
+Each account is assigned one of three roles:
 
 | Role | Can do |
 |---|---|
@@ -51,37 +56,47 @@ for one hotel's maintenance traffic, it costs nothing.
 1. In the project, go to **Build → Authentication → Get started**.
 2. Under **Sign-in method**, enable **Email/Password**.
 
-### 3. Create the three role accounts
+### 3. Create an account for each person
 
-Still in **Authentication → Users → Add user**, create three accounts.
-The "email" doesn't need to be real or receive mail — it's just an ID:
+Still in **Authentication → Users → Add user**, create one account per
+person who'll use the app. The "email" the app asks for is just
+`<username>@site.local` — it never needs to be real or receive mail, it's
+just an identifier:
 
 | Email | Password |
 |---|---|
-| `maintenance@site.local` | the Maintenance PIN |
-| `housekeeping@site.local` | the Housekeeping PIN |
-| `management@site.local` | the Management PIN |
+| `duncan@site.local` | Duncan's personal PIN |
+| `lena@site.local` | Lena's personal PIN |
+| `juthakon@site.local` | Juthakon's personal PIN |
+| `gary@site.local` | Gary's personal PIN |
+| `katie@site.local` | Katie's personal PIN |
+| *(you, etc.)* | your PIN |
 
-Use a PIN that's at least 6 characters (Firebase's minimum) and not
-something guessable like `123456` — anyone who has it can act as that role
-from any device. Write down each account's **User UID** (shown in the
-Users table) — you need it in the next step.
+The part before `@site.local` is that person's **username** — what they
+actually type into the app's login screen (case doesn't matter; spaces
+become dots). Use a PIN that's at least 6 characters (Firebase's minimum)
+and not something guessable — anyone who has it can sign in as that
+person from any device. Write down each account's **User UID** (shown in
+the Users table) — you need it in the next step.
 
-If you use different email addresses than the table above, update
-`ROLE_ACCOUNTS` in `firebase-config.js` (step 6) to match.
+(The app used to sign in with three shared role accounts —
+`maintenance@site.local` etc. If you already created those, you can keep
+them as a fallback shared login, delete them once everyone has their own
+account, or repurpose one — e.g. rename its `name` field — for yourself.)
 
-### 4. Turn on Firestore and set up roles
+### 4. Turn on Firestore and set up each person's role
 
 1. Go to **Build → Firestore Database → Create database**. Start in
    **production mode** (the rules file below replaces the default).
-2. In the Firestore console, manually add a collection called `roles`.
-   For each of the three users, add a document whose **Document ID** is
-   that user's UID (from step 3), with one field:
+2. In the Firestore console, manually add a collection called `users`.
+   For each person, add a document whose **Document ID** is that
+   person's UID (from step 3), with two fields:
    - `role` (string) = `maintenance`, `housekeeping`, or `management`
-     accordingly.
+   - `name` (string) = their display name, e.g. `Duncan` — this is what
+     shows up on jobs they log, so you can tell who did what.
 
    This is what the security rules check — it's why only you (via the
-   console) can grant a role, never the app itself.
+   console) can grant someone a role, never the app itself.
 
 ### 5. Deploy the security rules
 
@@ -136,20 +151,26 @@ working with no signal once it's loaded once.
 
 ## Day-to-day use
 
-- Send the install link to Duncan (Maintenance), Lena/Juthakon
-  (Housekeeping), and Gary/Katie (Management), plus the relevant PIN for
-  each.
-- On first open, tap your role, enter the PIN. Everyone stays signed in
-  after that until they tap the ⏻ logout button.
+- Send the install link to each person, along with their own username and
+  PIN — not a shared one.
+- On first open, enter your username and PIN. Everyone stays signed in
+  after that on that device until they tap the ⏻ logout button.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
+- Every job now shows who logged it (and, if different, who last updated
+  it) — visible in the job list and in the job detail view.
 
-## Rotating or revoking a PIN
+## Adding someone new, or rotating/revoking a PIN
 
-If someone leaves, or a PIN gets shared further than intended: Firebase
-console → **Authentication → Users** → find the role's account → **⋮ →
-Reset password**, and give everyone the new PIN. No app update needed.
+- **New person**: repeat steps 3–4 above for them — one Firebase Auth
+  user, one `users/{uid}` document with their role and name.
+- **PIN change or someone leaving**: Firebase console →
+  **Authentication → Users** → find their account → **⋮ → Reset
+  password** (to change their PIN), or **⋮ → Delete account** (to revoke
+  access entirely). No app update needed either way.
+- **Role change** (e.g. someone moves from Housekeeping to Maintenance):
+  edit the `role` field on their `users/{uid}` document in Firestore.
 
 ## Backing up your data
 
@@ -160,10 +181,6 @@ backup.
 
 ## Where this could go next
 
-- **Per-person logins** instead of shared role PINs, if you want to know
-  exactly who logged or closed each job (Firebase Authentication already
-  supports this — it's a bigger change to the login screen, not the data
-  model).
 - **Push notifications** (Firebase Cloud Messaging) so Maintenance gets
   pinged the moment housekeeping reports something, instead of having to
   open the app.
