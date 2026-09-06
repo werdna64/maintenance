@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '12';
+const APP_VERSION = '13';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -33,6 +33,14 @@ function fmtDate(iso){
   if(!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+}
+
+function fmtDateTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  const time = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  return `${date}, ${time}`;
 }
 
 function uid(prefix){
@@ -311,6 +319,7 @@ function render(){
 function stampAudit(job, isNew){
   job.updatedByUid = currentUser.uid;
   job.updatedByName = currentUser.name;
+  job.updatedAt = new Date().toISOString();
   if(isNew){
     job.createdByUid = currentUser.uid;
     job.createdByName = currentUser.name;
@@ -342,9 +351,10 @@ function openJobSheet(job){
   el('f_notes').value = job ? (job.notes||'') : '';
 
   if(job && job.createdByName){
-    const createdLine = `Logged by ${job.createdByName} on ${fmtDate(job.dateLogged)}`;
-    const updatedLine = (job.updatedByName && job.updatedByName !== job.createdByName)
-      ? ` · Last updated by ${job.updatedByName}` : '';
+    const createdLine = `Logged by ${job.createdByName} on ${fmtDateTime(job.dateLogged)}`;
+    const hasUpdate = job.updatedByName && job.updatedAt && job.updatedAt !== job.dateLogged;
+    const updatedLine = hasUpdate
+      ? ` · Updated by ${job.updatedByName} on ${fmtDateTime(job.updatedAt)}` : '';
     el('sheetAudit').textContent = createdLine + updatedLine;
   } else {
     el('sheetAudit').textContent = '';
