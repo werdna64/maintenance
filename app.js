@@ -1,3 +1,7 @@
+// Bump alongside sw.js's CACHE_NAME and version.json's "version" field
+// on every release — this is what the update banner compares against.
+const APP_VERSION = '9';
+
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 
@@ -38,6 +42,46 @@ function uid(prefix){
 function roomArea(roomNumber){
   const r = rooms.find(r => r.number === roomNumber);
   return r ? r.area : 'Unassigned';
+}
+
+// ---------------- version check ----------------
+
+let updateAvailable = false;
+
+async function checkForUpdate(){
+  if(updateAvailable) return; // already showing the banner, no need to re-check
+  try{
+    const res = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' });
+    if(!res.ok) return;
+    const data = await res.json();
+    if(data.version && String(data.version) !== APP_VERSION){
+      updateAvailable = true;
+      el('updateBanner').classList.add('show');
+      if('serviceWorker' in navigator){
+        const reg = await navigator.serviceWorker.getRegistration();
+        if(reg) reg.update().catch(()=>{});
+      }
+    }
+  }catch(e){
+    // Offline or blocked — nothing to do, the currently loaded copy still works.
+  }
+}
+
+async function reloadForUpdate(){
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if(window.caches){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  }catch(e){
+    // Best effort — reload regardless, the new service worker/cache will
+    // still take over on the next load even if cleanup partly failed.
+  }
+  location.reload();
 }
 
 // ---------------- login ----------------
@@ -521,3 +565,11 @@ DB.onAuthChange((user)=>{
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
+el('updateReloadBtn').addEventListener('click', reloadForUpdate);
+
+checkForUpdate();
+setInterval(checkForUpdate, 15 * 60 * 1000); // catch a deploy while the app is left open
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') checkForUpdate();
+});

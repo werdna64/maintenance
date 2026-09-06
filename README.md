@@ -38,6 +38,8 @@ relaying through the chat group.
 - `firebase.json` — optional, only needed if you deploy with the Firebase CLI
 - `manifest.webmanifest` — lets Chrome/Safari install it as an app
 - `sw.js` — service worker, caches the app shell for offline use
+- `version.json` — current build number; app.js polls this to detect a
+  stale build and prompt a reload (see "Releasing an update" below)
 - `icon-192.png`, `icon-512.png` — app icons
 
 ## One-time setup
@@ -171,6 +173,25 @@ working with no signal once it's loaded once.
   access entirely). No app update needed either way.
 - **Role change** (e.g. someone moves from Housekeeping to Maintenance):
   edit the `role` field on their `users/{uid}` document in Firestore.
+
+## Releasing an update
+
+Every device polls `version.json` (on launch, every 15 minutes while
+open, and whenever the tab/app comes back to the foreground) and shows a
+"new version available" banner with a Reload button if it doesn't match
+the build that's currently loaded — so staff don't get stuck running an
+old, possibly-broken copy without knowing it.
+
+Whenever you (or anyone) pushes a change to `app.js`, `index.html`,
+`style.css`, or `db.js`, bump the version number in **three places** so
+the check actually fires and the new files actually load on reload:
+- `version.json` → `"version"`
+- `app.js` → `APP_VERSION` constant near the top
+- `sw.js` → `CACHE_NAME`
+
+All three just need to change to *something* different from before (e.g.
+increment by 1) — they don't need to match each other's format, they're
+three independent triggers for "something changed."
 
 ## Backing up your data
 

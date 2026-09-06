@@ -1,4 +1,8 @@
-const CACHE_NAME = 'room-jobs-v8';
+// NOTE: bump this on every release, alongside the "version" field in
+// version.json — app.js polls version.json to detect a stale build and
+// prompt a reload; this cache name is what actually makes the new files
+// take effect once that reload happens.
+const CACHE_NAME = 'room-jobs-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -40,6 +44,9 @@ self.addEventListener('fetch', (event) => {
   // Cache API throws on anything but http(s). Let the browser handle those
   // itself instead of trying (and failing) to cache them.
   if (!event.request.url.startsWith('http')) return;
+  // version.json must always hit the network — it's how the app detects a
+  // newer build is live. Never let a cached copy answer this request.
+  if (event.request.url.includes('version.json')) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request).then((response) => {

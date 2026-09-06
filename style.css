@@ -41,6 +41,20 @@ header .sub{font-size:12.5px; color:#b9c2d4; margin-top:2px;}
   white-space:nowrap;
 }
 
+/* ---------------- update banner ---------------- */
+.update-banner{
+  display:none; position:fixed; top:0; left:0; right:0; z-index:200;
+  background:var(--progress-bg); color:var(--progress); border-bottom:1.5px solid var(--progress);
+  padding:10px 14px; font-size:13px; font-weight:600;
+  align-items:center; justify-content:center; gap:12px;
+  padding-top:calc(10px + env(safe-area-inset-top));
+}
+.update-banner.show{display:flex;}
+.update-banner button{
+  border:1.5px solid var(--progress); background:#fff; color:var(--progress);
+  border-radius:8px; padding:5px 12px; font-weight:700; font-size:12.5px; cursor:pointer;
+}
+
 /* ---------------- login screen ---------------- */
 .login-screen{
   position:fixed; inset:0; background:var(--plaque); z-index:100;
