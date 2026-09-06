@@ -1,13 +1,13 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '10';
+const APP_VERSION = '11';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
-let config = { siteName: "Room Jobs", areas: [] };
+let config = { siteName: "Room Jobs", areas: [], commonIssues: [] };
 let activeFilter = "All";
 let editingId = null;
 let currentRole = null;
@@ -139,10 +139,12 @@ function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Room Jobs", areas: [] };
+    config = cfg || { siteName: "Room Jobs", areas: [], commonIssues: [] };
     if(!config.areas) config.areas = [];
+    if(!config.commonIssues) config.commonIssues = [];
     renderHeader();
     renderAreaSelects();
+    renderIssuePresetSelects();
     render();
   });
 }
@@ -175,6 +177,13 @@ function renderAreaSelects(){
   el('s_newRoomArea').innerHTML = options;
   if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
+}
+
+function renderIssuePresetSelects(){
+  const options = `<option value="">Other (type your own)…</option>` +
+    (config.commonIssues||[]).map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+  el('f_issuePreset').innerHTML = options;
+  el('r_issuePreset').innerHTML = options;
 }
 
 function renderRoomSelect(){
@@ -325,6 +334,7 @@ function openJobSheet(job){
   el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — Room ${job.room}` : 'New job';
   el('f_room').value = job ? job.room : '';
   el('f_area').value = job ? roomArea(job.room) : '';
+  el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
   el('f_notes').value = job ? (job.notes||'') : '';
@@ -338,7 +348,7 @@ function openJobSheet(job){
     el('sheetAudit').textContent = '';
   }
 
-  ['f_room','f_issue','f_status','f_notes'].forEach(id=>{
+  ['f_room','f_issuePreset','f_issue','f_status','f_notes'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
   el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
@@ -403,6 +413,7 @@ async function handleDeleteJob(){
 
 function openReportSheet(){
   el('r_room').value = '';
+  el('r_issuePreset').value = '';
   el('r_issue').value = '';
   el('reportBackdrop').classList.add('open');
 }
@@ -437,6 +448,7 @@ async function handleSubmitReport(){
 function openSettings(){
   el('s_siteName').value = config.siteName || '';
   renderAreaTags();
+  renderCommonIssueTags();
   renderRoomList();
   el('settingsBackdrop').classList.add('open');
 }
@@ -455,6 +467,22 @@ function renderAreaTags(){
       config.areas = config.areas.filter(x=>x!==a);
       await DB.setConfig(config);
       toast('Area removed');
+    });
+    wrap.appendChild(tag);
+  });
+}
+
+function renderCommonIssueTags(){
+  const wrap = el('commonIssueTagList');
+  wrap.innerHTML = '';
+  (config.commonIssues||[]).forEach(i=>{
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `<span>${escapeHtml(i)}</span><button data-issue="${escapeHtml(i)}">×</button>`;
+    tag.querySelector('button').addEventListener('click', async ()=>{
+      config.commonIssues = config.commonIssues.filter(x=>x!==i);
+      await DB.setConfig(config);
+      toast('Common issue removed');
     });
     wrap.appendChild(tag);
   });
@@ -487,6 +515,16 @@ async function handleAddArea(){
   el('s_newArea').value = '';
 }
 
+async function handleAddCommonIssue(){
+  const val = el('s_newCommonIssue').value.trim();
+  if(!val) return;
+  if(!(config.commonIssues||[]).includes(val)){
+    config.commonIssues = [...(config.commonIssues||[]), val];
+    await DB.setConfig(config);
+  }
+  el('s_newCommonIssue').value = '';
+}
+
 async function handleAddRoom(){
   const num = el('s_newRoomNum').value.trim();
   const area = el('s_newRoomArea').value.trim();
@@ -513,11 +551,17 @@ el('f_room').addEventListener('change', ()=>{
   const area = roomArea(el('f_room').value);
   if((config.areas||[]).includes(area)) el('f_area').value = area;
 });
+el('f_issuePreset').addEventListener('change', ()=>{
+  if(el('f_issuePreset').value) el('f_issue').value = el('f_issuePreset').value;
+});
 el('cancelBtn').addEventListener('click', closeJobSheet);
 el('saveBtn').addEventListener('click', handleSaveJob);
 el('deleteBtn').addEventListener('click', handleDeleteJob);
 el('sheetBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
+el('r_issuePreset').addEventListener('change', ()=>{
+  if(el('r_issuePreset').value) el('r_issue').value = el('r_issuePreset').value;
+});
 el('reportCancelBtn').addEventListener('click', closeReportSheet);
 el('reportSubmitBtn').addEventListener('click', handleSubmitReport);
 el('reportBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
@@ -538,6 +582,7 @@ el('closeSettingsBtn').addEventListener('click', async ()=>{
 });
 el('settingsBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
 el('addAreaBtn').addEventListener('click', handleAddArea);
+el('addCommonIssueBtn').addEventListener('click', handleAddCommonIssue);
 el('addRoomBtn').addEventListener('click', handleAddRoom);
 el('s_siteName').addEventListener('blur', handleSaveSiteName);
 

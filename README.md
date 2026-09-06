@@ -160,6 +160,12 @@ working with no signal once it's loaded once.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
+- ⚙ Settings → **Common Issues** is an optional list of recurring
+  problems (e.g. "Bath plug missing", "Sink blocked", "TV remote
+  missing") that shows up as a "Quick pick" dropdown when logging or
+  reporting a job — pick one to fill the issue text instantly, or leave
+  it on "Other" and type your own. Nobody has to use it; it's purely a
+  shortcut for the common cases.
 - Every job now shows who logged it (and, if different, who last updated
   it) — visible in the job list and in the job detail view.
 

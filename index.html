@@ -84,6 +84,12 @@
       </div>
     </div>
     <div class="field">
+      <label>Quick pick</label>
+      <select id="f_issuePreset">
+        <option value="">Other (type your own)…</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Issue</label>
       <textarea id="f_issue" rows="3" placeholder="e.g. Replace room controller — repeated P10 comms faults"></textarea>
     </div>
@@ -120,6 +126,12 @@
       </select>
     </div>
     <div class="field">
+      <label>Quick pick</label>
+      <select id="r_issuePreset">
+        <option value="">Other (type your own)…</option>
+      </select>
+    </div>
+    <div class="field">
       <label>What's wrong?</label>
       <textarea id="r_issue" rows="3" placeholder="Describe the problem"></textarea>
     </div>
@@ -151,6 +163,17 @@
           <input id="s_newArea" type="text" placeholder="Add area, e.g. Bar / Kitchen / 4th Floor">
         </div>
         <button class="btn btn-primary" id="addAreaBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Common Issues</h3>
+      <div class="tag-list" id="commonIssueTagList"></div>
+      <div class="row2">
+        <div class="field" style="margin-bottom:0;">
+          <input id="s_newCommonIssue" type="text" placeholder="e.g. Bath plug missing / Sink blocked / TV remote missing">
+        </div>
+        <button class="btn btn-primary" id="addCommonIssueBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
       </div>
     </div>
 
