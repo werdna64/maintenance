@@ -1,6 +1,6 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '14';
+const APP_VERSION = '15';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
