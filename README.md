@@ -198,6 +198,20 @@ open, and whenever the tab/app comes back to the foreground) and shows a
 the build that's currently loaded — so staff don't get stuck running an
 old, possibly-broken copy without knowing it.
 
+### Version numbering
+
+Uses standard semantic versioning, with the phase of rollout as an
+explicit label alongside the number (shown on the login screen and in
+the app header, e.g. `v0.1.3 · Pre-release`):
+
+| Version | Stage | Meaning |
+|---|---|---|
+| `0.1.x` | **Pre-release** | Just you, testing solo. |
+| `0.2.x` | **Beta** | Other staff are using it too. |
+| `1.0.0`+ | **Release** | The real thing — `1.1.0` for new features from here, `1.0.1` for fixes. |
+
+### Bumping the version
+
 Whenever you (or anyone) pushes a change to `app.js`, `index.html`,
 `style.css`, or `db.js`, bump the version number in **three places** so
 the check actually fires and the new files actually load on reload:
@@ -205,9 +219,16 @@ the check actually fires and the new files actually load on reload:
 - `app.js` → `APP_VERSION` constant near the top
 - `sw.js` → `CACHE_NAME`
 
-All three just need to change to *something* different from before (e.g.
-increment by 1) — they don't need to match each other's format, they're
-three independent triggers for "something changed."
+All three just need to change to *something* different from before —
+they don't need to match each other's format, they're three independent
+triggers for "something changed." In practice, keep them as the same
+semver string (e.g. all three become `0.1.4`) so it's obvious at a
+glance they're in sync.
+
+The **stage** label (`APP_STAGE` in `app.js`, `"stage"` in
+`version.json`) doesn't need to change on every release — only bump it
+when you actually move to the next phase (e.g. handing it to Duncan and
+Lena for the first time = flip to Beta).
 
 ## Backing up your data
 

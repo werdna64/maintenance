@@ -1,6 +1,11 @@
 // Bump alongside sw.js's CACHE_NAME and version.json's "version" field
 // on every release — this is what the update banner compares against.
-const APP_VERSION = '16';
+// Semantic versioning: 0.1.x = Pre-release (you, solo testing), 0.2.x =
+// Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
+// shown alongside the number — bump it (and version.json's "stage") when
+// you actually move to the next phase, not on every release.
+const APP_VERSION = '0.1.0';
+const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
@@ -63,7 +68,9 @@ async function checkForUpdate(){
     const res = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' });
     if(!res.ok) return;
     const data = await res.json();
-    if(data.version && String(data.version) !== APP_VERSION){
+    const changed = (data.version && String(data.version) !== APP_VERSION)
+      || (data.stage && String(data.stage) !== APP_STAGE);
+    if(changed){
       updateAvailable = true;
       el('updateBanner').classList.add('show');
       if('serviceWorker' in navigator){
@@ -746,8 +753,8 @@ if('serviceWorker' in navigator){
 
 el('updateReloadBtn').addEventListener('click', reloadForUpdate);
 
-el('versionTagLogin').textContent = `v${APP_VERSION}`;
-el('versionTagHeader').textContent = `v${APP_VERSION}`;
+el('versionTagLogin').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
+el('versionTagHeader').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
 
 checkForUpdate();
 setInterval(checkForUpdate, 15 * 60 * 1000); // catch a deploy while the app is left open
