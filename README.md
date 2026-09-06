@@ -1,4 +1,4 @@
-# Room Jobs — hotel maintenance tracker (PWA)
+# Maintenance Tracker (PWA)
 
 A mobile-first maintenance job tracker, grouped by Area and Room, shared in
 real time across everyone who needs it. Installs to the home screen on
@@ -134,7 +134,7 @@ installed: `firebase deploy --only firestore:rules` using the included
    present at the repo root — see above).
 2. In the repo: **Settings → Pages → Source → Deploy from a branch → main
    → / (root)**.
-3. GitHub gives you a URL like `https://yourusername.github.io/room-jobs/`.
+3. GitHub gives you a URL like `https://yourusername.github.io/maintenance/`.
    That's your app's permanent address — HTTPS by default, which service
    workers require.
 

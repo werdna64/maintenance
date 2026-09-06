@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.2';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -12,7 +12,7 @@ const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
-let config = { siteName: "Room Jobs", areas: [], commonIssues: [] };
+let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
 let activeFilter = "All";
 let editingId = null;
 let currentRole = null;
@@ -157,7 +157,7 @@ function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Room Jobs", areas: [], commonIssues: [] };
+    config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
     if(!config.areas) config.areas = [];
     if(!config.commonIssues) config.commonIssues = [];
     renderHeader();
@@ -671,7 +671,7 @@ async function handleAddRoom(){
 }
 
 async function handleSaveSiteName(){
-  config.siteName = el('s_siteName').value.trim() || 'Room Jobs';
+  config.siteName = el('s_siteName').value.trim() || 'Maintenance Tracker';
   await DB.setConfig(config);
 }
 

@@ -1,6 +1,6 @@
 {
-  "name": "Room Jobs",
-  "short_name": "Room Jobs",
+  "name": "Maintenance Tracker",
+  "short_name": "Maintenance",
   "description": "Maintenance job tracker by room and area",
   "start_url": "./index.html",
   "scope": "./",
