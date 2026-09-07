@@ -71,6 +71,20 @@ header h1{
 .notif-item .notif-meta{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:3px;}
 .notif-empty{text-align:center; color:var(--ink-soft); padding:24px 10px; font-size:13px;}
 
+.walk-day{margin-bottom:6px;}
+.walk-day summary{
+  list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+  gap:10px; padding:11px 2px; border-bottom:1.5px solid var(--line);
+}
+.walk-day summary::-webkit-details-marker{display:none;}
+.walk-day-date{font-size:14px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:7px;}
+.walk-day-date::before{
+  content:'▸'; display:inline-block; color:var(--plaque-brass); font-size:11px; transition:transform .15s;
+}
+.walk-day[open] .walk-day-date::before{transform:rotate(90deg);}
+.walk-day-stats{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); white-space:nowrap;}
+.walk-day-body{padding-top:10px;}
+
 .walk-entry{
   background:#fff; border:1.5px solid var(--line); border-radius:12px;
   padding:12px 13px; margin-bottom:10px;

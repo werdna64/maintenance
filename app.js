@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.11';
+const APP_VERSION = '0.1.12';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -840,6 +840,27 @@ function closeWalkHistory(){
   el('walkHistoryBackdrop').classList.remove('open');
 }
 
+// Local calendar day the walk started on (not the raw UTC date in the
+// ISO string) — so a late-night walk groups with the day staff would
+// actually call "today."
+function walkDayKey(iso){
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function fmtDayHeading(dayKey){
+  const [y,m,d] = dayKey.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+}
+
+function walkSummary(w){
+  const floors = w.floors || [];
+  const totalFaults = floors.reduce((n,f)=> n + (f.faults ? f.faults.length : 0), 0);
+  const anyIssues = floors.some(f=>!f.allClear);
+  const label = !anyIssues ? 'All clear' : (totalFaults > 0 ? `${totalFaults} issue${totalFaults===1?'':'s'} found` : 'Notes only');
+  return { totalFaults, anyIssues, label };
+}
+
 function renderWalkHistory(){
   const wrap = el('walkHistoryList');
   const sorted = [...walks].sort((a,b)=> (b.startedAt||'').localeCompare(a.startedAt||''));
@@ -849,21 +870,51 @@ function renderWalkHistory(){
     return;
   }
 
-  wrap.innerHTML = sorted.map(w=>{
-    const floors = w.floors || [];
-    const totalFaults = floors.reduce((n,f)=> n + (f.faults ? f.faults.length : 0), 0);
-    const anyIssues = floors.some(f=>!f.allClear);
-    const summary = !anyIssues ? 'All clear'
-      : (totalFaults > 0 ? `${totalFaults} issue${totalFaults===1?'':'s'} found` : 'Notes only');
+  // Group into calendar days, most recent first — only the most recent
+  // day starts expanded, so a long history stays a scroll of headings
+  // rather than a wall of every walk ever done.
+  const dayKeys = [];
+  const byDay = {};
+  sorted.forEach(w=>{
+    const key = walkDayKey(w.startedAt);
+    if(!byDay[key]){ byDay[key] = []; dayKeys.push(key); }
+    byDay[key].push(w);
+  });
+
+  wrap.innerHTML = dayKeys.map((key, dayIdx)=>{
+    const dayWalks = byDay[key];
+    const dayFaults = dayWalks.reduce((n,w)=> n + walkSummary(w).totalFaults, 0);
+    const dayIssueWalks = dayWalks.filter(w=>walkSummary(w).anyIssues).length;
+    const dayStats = dayIssueWalks === 0
+      ? `${dayWalks.length} walk${dayWalks.length===1?'':'s'} · all clear`
+      : `${dayWalks.length} walk${dayWalks.length===1?'':'s'} · ${dayFaults} issue${dayFaults===1?'':'s'}`;
 
     return `
+      <details class="walk-day"${dayIdx===0?' open':''}>
+        <summary>
+          <span class="walk-day-date">${escapeHtml(fmtDayHeading(key))}</span>
+          <span class="walk-day-stats">${escapeHtml(dayStats)}</span>
+        </summary>
+        <div class="walk-day-body">
+          ${dayWalks.map(w=>renderWalkEntry(w)).join('')}
+        </div>
+      </details>
+    `;
+  }).join('');
+}
+
+function renderWalkEntry(w){
+  const floors = w.floors || [];
+  const { anyIssues, label } = walkSummary(w);
+
+  return `
       <div class="walk-entry">
         <div class="walk-entry-head">
           <div>
             <div class="walk-entry-date">${fmtDateTime(w.startedAt)}</div>
             <div class="walk-entry-by">${escapeHtml(w.conductedByName || 'someone')}</div>
           </div>
-          <span class="walk-entry-summary ${anyIssues ? 'has-issues' : 'clear'}">${escapeHtml(summary)}</span>
+          <span class="walk-entry-summary ${anyIssues ? 'has-issues' : 'clear'}">${escapeHtml(label)}</span>
         </div>
         <div class="walk-entry-floors">
           ${floors.map((f,i)=>{
@@ -890,7 +941,6 @@ function renderWalkHistory(){
         </div>
       </div>
     `;
-  }).join('');
 }
 
 // ---------------- settings sheet (maintenance only) ----------------

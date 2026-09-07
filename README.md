@@ -255,12 +255,16 @@ door, Fire extinguisher, Emergency lighting, Exit sign, Other), edit it
 to match what this hotel's walks actually check for.
 
 **Walk History** — the clock icon next to it opens a report of every
-walk ever completed, newest first: when, who did it, and a floor-by-floor
-breakdown (an "All clear" badge, or the faults found and any note).
-Crucially, **finishing a walk records it even when every floor is all
-clear** — so this is also your proof a walk actually happened on a given
-day, not just a log of faults. Visible to everyone signed in (including
-Management), since it's read-only.
+walk ever completed, newest first, grouped by day — only the most recent
+day starts expanded, tap a day's heading to open or close it, so a long
+history stays a scroll of headings rather than a wall of every walk ever
+done. Each day's heading shows how many walks that day and whether any
+had issues. Inside a day: when each walk was, who did it, and a
+floor-by-floor breakdown (an "All clear" badge, or the faults found and
+any note). Crucially, **finishing a walk records it even when every
+floor is all clear** — so this is also your proof a walk actually
+happened on a given day, not just a log of faults. Visible to everyone
+signed in (including Management), since it's read-only.
 
 Each floor also gets its own **completion timestamp**, stamped the
 moment you tap "Next floor" (or "Finish walk" on the last one) — shown
