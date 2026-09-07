@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.25';
+const APP_VERSION = '0.1.26';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -15,7 +15,7 @@ let rooms = [];      // { id, number, area }
 let walks = [];       // completed Fire & Security Walk sessions
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
-let collapsedAreas = new Set(); // area names the user has manually collapsed
+let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
 let editingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
@@ -500,15 +500,24 @@ function render(){
     return idxA - idxB;
   });
 
+  // Same "unseen since last checked" set the notification bell uses —
+  // an area with one of these jobs inside it gets a red count badge,
+  // so something new doesn't go unnoticed just because its area starts
+  // collapsed. Clears the same way the bell's own badge does: opening
+  // and closing the notifications panel marks everything seen.
+  const unseenJobIds = new Set(computeNotifications().map(n => n.job.id));
+
   areaKeys.forEach(area=>{
-    const areaJobCount = Object.values(byArea[area]).reduce((n, arr) => n + arr.length, 0);
+    const areaJobs = Object.values(byArea[area]).flat();
+    const areaJobCount = areaJobs.length;
+    const hasUnseen = areaJobs.some(j => unseenJobIds.has(j.id));
     const g = document.createElement('details');
     g.className = 'group';
-    if(!collapsedAreas.has(area)) g.open = true;
+    if(expandedAreas.has(area)) g.open = true;
     g.addEventListener('toggle', ()=>{
-      if(g.open) collapsedAreas.delete(area); else collapsedAreas.add(area);
+      if(g.open) expandedAreas.add(area); else expandedAreas.delete(area);
     });
-    g.innerHTML = `<summary class="group-label"><span class="area-label">${escapeHtml(area)}</span><span class="group-count">${areaJobCount}</span><div class="rule"></div></summary>`;
+    g.innerHTML = `<summary class="group-label"><span class="area-label">${escapeHtml(area)}</span><span class="group-count${hasUnseen ? ' has-new' : ''}">${areaJobCount}</span><div class="rule"></div></summary>`;
 
     const roomKeys = Object.keys(byArea[area]).sort((a,b)=> a.localeCompare(b, undefined, {numeric:true}));
     roomKeys.forEach(room=>{

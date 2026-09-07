@@ -209,6 +209,7 @@ header h1{
   text-align:center;
 }
 .group:not([open]) .group-count{display:inline-block;}
+.group-count.has-new{background:var(--open); color:#fff;}
 
 .card{
   background:#fff; border-radius:14px; border:1px solid var(--line);
