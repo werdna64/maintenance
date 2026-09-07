@@ -262,6 +262,15 @@ clear** — so this is also your proof a walk actually happened on a given
 day, not just a log of faults. Visible to everyone signed in (including
 Management), since it's read-only.
 
+Each floor also gets its own **completion timestamp**, stamped the
+moment you tap "Next floor" (or "Finish walk" on the last one) — shown
+in the report next to the time it took since the previous floor was
+completed (e.g. `14:32 · +2m 14s`). Walking back and re-checking a
+floor before moving on again is fine — only the timestamp from when you
+actually move forward counts. A run of very short gaps between floors
+is the tell for someone rattling through the checklist at their desk
+rather than actually walking it.
+
 ## Adding someone new, or rotating/revoking a PIN
 
 - **New person**: repeat steps 3–4 above for them — one Firebase Auth

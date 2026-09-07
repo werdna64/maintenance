@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.10';
+const APP_VERSION = '0.1.11';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -48,6 +48,18 @@ function fmtDateTime(iso){
   const date = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
   const time = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   return `${date}, ${time}`;
+}
+
+function fmtTimeOnly(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function fmtElapsed(ms){
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}m ${String(s).padStart(2,'0')}s` : `${s}s`;
 }
 
 function uid(prefix){
@@ -671,7 +683,7 @@ async function handleSubmitReport(){
 
 let walkAreas = [];
 let walkIndex = 0;
-let walkData = {}; // { [area]: { faults: Set<string>, note: string } }
+let walkData = {}; // { [area]: { faults: Set<string>, note: string, completedAt: string|null } }
 let walkStartedAt = null;
 
 // Walk order: floors highest-to-lowest (9th Floor down to 1st, however
@@ -700,7 +712,7 @@ function openWalkWizard(){
   walkIndex = 0;
   walkData = {};
   walkStartedAt = new Date().toISOString();
-  walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '' });
+  walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '', completedAt: null });
   renderWalkStep();
   el('walkBackdrop').classList.add('open');
 }
@@ -748,6 +760,10 @@ function walkGoBack(){
 
 async function walkGoNext(){
   saveCurrentWalkStep();
+  // Stamped on forward progress only — going Back to revise a floor
+  // doesn't count as re-completing it until Next is tapped again, so a
+  // gap between two floors' timestamps always reflects real time spent.
+  walkData[walkAreas[walkIndex]].completedAt = new Date().toISOString();
   if(walkIndex === walkAreas.length - 1){
     await finishWalk();
   } else {
@@ -782,7 +798,7 @@ async function finishWalk(){
   const floors = walkAreas.map(area=>{
     const data = walkData[area];
     const faults = Array.from(data.faults);
-    return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note };
+    return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note, completedAt: data.completedAt };
   });
 
   for(const floor of floors){
@@ -850,7 +866,15 @@ function renderWalkHistory(){
           <span class="walk-entry-summary ${anyIssues ? 'has-issues' : 'clear'}">${escapeHtml(summary)}</span>
         </div>
         <div class="walk-entry-floors">
-          ${floors.map(f=>`
+          ${floors.map((f,i)=>{
+            // Elapsed since the previous floor was completed (or since
+            // the walk started, for the first floor) — a run of very
+            // short gaps is the tell for someone tapping through at
+            // their desk instead of actually walking the floors.
+            const prevTime = i === 0 ? w.startedAt : floors[i-1].completedAt;
+            const elapsed = (f.completedAt && prevTime)
+              ? fmtElapsed(new Date(f.completedAt) - new Date(prevTime)) : '';
+            return `
             <div class="walk-floor-row">
               <span class="walk-floor-label">${escapeHtml(f.area)}</span>
               ${f.allClear
@@ -858,9 +882,11 @@ function renderWalkHistory(){
                 : (f.faults && f.faults.length
                   ? `<span class="walk-fault-list">${f.faults.map(fault=>`<span class="fault-chip">${escapeHtml(fault)}</span>`).join('')}</span>`
                   : '')}
+              ${f.completedAt ? `<span class="walk-floor-time">${fmtTimeOnly(f.completedAt)}${elapsed ? ` · +${elapsed}` : ''}</span>` : ''}
               ${f.note ? `<div class="walk-floor-note">${escapeHtml(f.note)}</div>` : ''}
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       </div>
     `;
