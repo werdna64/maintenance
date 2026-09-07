@@ -256,6 +256,28 @@ note is attached to whichever job(s) that floor produced; if you write
 a note but tap no faults, it's logged as its own "Walk note" job so it
 isn't lost.
 
+**A fault that keeps getting found doesn't pile up duplicate jobs.**
+Before logging a tapped fault as a new job, the walk checks whether
+there's already an open (non-Done) job for that exact room and fault —
+if so, it doesn't create another one. This is what makes a fault that
+takes days to sort out (e.g. an EM light fitting that needs building,
+testing and fitting) behave correctly: it stays as the *same* job,
+carried through Open → In Progress → Awaiting Parts → Done at whatever
+pace the work actually takes, how ever many walks re-confirm it's still
+broken in the meantime — not a fresh "Open" job every time it's
+re-spotted. When a Maintenance account runs the walk, each re-confirmation
+also appends a note to that job ("Still present on today's walk", or
+whatever freehand note you added), so the job's own note thread shows
+the timeline. A Housekeeping-role walk (night staff/duty managers) skips
+that note — Housekeeping can't edit an existing job (see the security
+rules explainer above) — but Walk History still records that the fault
+was found again that day, which is where to check if a job's own notes
+don't mention it. Only a genuinely new occurrence, logged after the
+previous one is marked Done, starts a new job — this only matches
+faults picked from the Walk Faults checklist; a freehand "Walk note" is
+never de-duplicated, since two different days' free text is usually
+about two different things.
+
 ⚙ Settings → **Walk Faults** is the editable checklist offered on each
 floor — seeded with the common ones (Corridor lighting, P10 fault, Fire
 door, Fire extinguisher, Emergency lighting, Exit sign, Other), edit it

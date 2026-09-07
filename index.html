@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.15">
+<link rel="stylesheet" href="style.css?v=0.1.16">
 </head>
 <body>
 
@@ -419,6 +419,11 @@
         the whole thing away — nothing half-logged.</li>
         <li>Every walk is recorded, even a fully clean one, so there's
         proof it happened — timestamped floor by floor.</li>
+        <li>A fault that's already an open job (still being sorted from
+        an earlier walk) won't be logged again as a duplicate — it stays
+        as the one job until it's marked Done, however many walks
+        re-find it in the meantime. Check Walk History if you want to
+        see exactly which days it was re-confirmed.</li>
       </ul>
     </div>
 
@@ -462,7 +467,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.15"></script>
-<script src="app.js?v=0.1.15"></script>
+<script src="db.js?v=0.1.16"></script>
+<script src="app.js?v=0.1.16"></script>
 </body>
 </html>

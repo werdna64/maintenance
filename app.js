@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.15';
+const APP_VERSION = '0.1.16';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -801,6 +801,41 @@ async function createWalkJob(area, issue, note){
   await DB.putJob(job);
 }
 
+// A named fault (from the Walk Faults checklist, not a freehand "Walk
+// note") gets matched against any job already open for that exact
+// room + issue text before logging a new one — so a fault a walk keeps
+// re-finding (an EM light fitting that takes days to build, test and
+// fit) stays as the ONE job it already is, tracked through its status
+// changes, rather than spawning a fresh duplicate every walk that
+// re-confirms it's still broken. Returns true if a new job was created,
+// false if an existing one was found (and, when possible, reconfirmed).
+async function logWalkFinding(area, issue, note){
+  const room = `${area} Corridor`;
+  const existing = jobs.find(j => j.room === room && j.issue === issue && j.status !== 'Done');
+  if(existing){
+    // Only Maintenance can update an existing job (firestore.rules) —
+    // a Maintenance-conducted walk appends a "still present" note; a
+    // Housekeeping-role walk (covers night staff/duty managers) simply
+    // doesn't touch the job, since it can't. Either way the walk's own
+    // record (Walk History) still shows the fault was found again today.
+    if(currentRole === 'maintenance'){
+      const notes = normalizeNotes(existing);
+      notes.push({
+        text: note || "Still present on today's walk",
+        authorUid: currentUser.uid,
+        authorName: currentUser.name,
+        createdAt: new Date().toISOString()
+      });
+      existing.notes = notes;
+      stampAudit(existing, false);
+      await DB.putJob(existing);
+    }
+    return false;
+  }
+  await createWalkJob(area, issue, note);
+  return true;
+}
+
 async function finishWalk(){
   const floors = walkAreas.map(area=>{
     const data = walkData[area];
@@ -808,14 +843,19 @@ async function finishWalk(){
     return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note, completedAt: data.completedAt };
   });
 
+  let newCount = 0, reconfirmedCount = 0;
   for(const floor of floors){
     if(floor.allClear) continue;
     await ensureRoomExists(`${floor.area} Corridor`, floor.area);
     if(floor.faults.length === 0){
+      // Freehand notes aren't matched/de-duplicated — different days'
+      // notes are usually about different things, so each is its own job.
       await createWalkJob(floor.area, 'Walk note', floor.note);
+      newCount++;
     } else {
       for(const fault of floor.faults){
-        await createWalkJob(floor.area, fault, floor.note);
+        const isNew = await logWalkFinding(floor.area, fault, floor.note);
+        if(isNew) newCount++; else reconfirmedCount++;
       }
     }
   }
@@ -833,7 +873,12 @@ async function finishWalk(){
   await DB.putWalk(walk);
 
   closeWalkWizard();
-  toast(floors.some(f => !f.allClear) ? 'Walk logged' : 'Walk logged — all in order');
+  let msg;
+  if(newCount === 0 && reconfirmedCount === 0) msg = 'Walk logged — all in order';
+  else if(newCount > 0 && reconfirmedCount > 0) msg = `Walk logged — ${newCount} new, ${reconfirmedCount} still open`;
+  else if(newCount > 0) msg = `Walk logged — ${newCount} new issue${newCount===1?'':'s'}`;
+  else msg = `Walk logged — ${reconfirmedCount} already logged`;
+  toast(msg);
 }
 
 // ---------------- Walk History report (all signed-in roles) ----------------
