@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.19">
+<link rel="stylesheet" href="style.css?v=0.1.20">
 </head>
 <body>
 
@@ -355,6 +355,17 @@
         </div>
         <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
       </div>
+
+      <p class="settings-hint">Adding a lot of rooms at once? Paste a
+      list below, one room per line, as <code>Room number, Area</code>
+      — e.g. <code>901, 9th Floor</code>. Areas that don't exist yet are
+      created automatically. Safe to run more than once: a room number
+      already on the list gets updated (e.g. if its area changed), not
+      duplicated, and anything not in your pasted list is left alone.</p>
+      <textarea id="s_bulkRooms" rows="6" placeholder="901, 9th Floor&#10;902, 9th Floor&#10;9th Floor Lift Lobby, 9th Floor"></textarea>
+      <div class="row2">
+        <button class="btn btn-primary" id="bulkImportRoomsBtn" style="flex:1;">Import rooms</button>
+      </div>
     </div>
 
     <div class="sheet-actions">
@@ -500,7 +511,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.19"></script>
-<script src="app.js?v=0.1.19"></script>
+<script src="db.js?v=0.1.20"></script>
+<script src="app.js?v=0.1.20"></script>
 </body>
 </html>

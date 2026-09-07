@@ -229,6 +229,13 @@ working with no signal once it's loaded once.
   what was deleted and why even though the job itself is gone. Nothing
   in the app currently displays this collection — check it directly in
   the Firestore console if you ever need to.
+- ⚙ Settings → Rooms has a **bulk import** box under the usual one-at-a-
+  time form — paste multiple `Room number, Area` lines (one per room)
+  and tap Import. Any area mentioned that doesn't exist yet is created
+  automatically. It's safe to re-run: a room number already on file
+  gets its area updated rather than duplicated, and rooms not in the
+  pasted list are left alone — useful for setting up a full room list
+  in one go, or fixing a batch of areas later.
 - ⚙ Settings → **Common Issues** is an optional list of recurring
   problems (e.g. "Bath plug missing", "Sink blocked", "TV remote
   missing") that shows up as a "Quick pick" dropdown when logging or

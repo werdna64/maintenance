@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.19';
+const APP_VERSION = '0.1.20';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1212,6 +1212,37 @@ async function handleAddRoom(){
   toast('Room added');
 }
 
+// Bulk room entry: one "Number, Area" pair per line. Reuses
+// ensureRoomExists() line by line — a room number already on file gets
+// its area updated rather than duplicated, and anything not mentioned
+// in the paste is left untouched, so this is safe to re-run.
+async function handleBulkImportRooms(){
+  const raw = el('s_bulkRooms').value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  if(lines.length === 0){ toast('Paste some rooms first'); return; }
+
+  const btn = el('bulkImportRoomsBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  let added = 0, skipped = 0;
+  for(const line of lines){
+    const commaIdx = line.indexOf(',');
+    if(commaIdx === -1){ skipped++; continue; }
+    const num = line.slice(0, commaIdx).trim();
+    const area = line.slice(commaIdx + 1).trim();
+    if(!num || !area){ skipped++; continue; }
+    await ensureRoomExists(num, area);
+    added++;
+  }
+
+  renderRoomList();
+  el('s_bulkRooms').value = '';
+  btn.disabled = false;
+  btn.textContent = 'Import rooms';
+  toast(skipped > 0 ? `Imported ${added}, skipped ${skipped} (need "Number, Area")` : `Imported ${added} rooms`);
+}
+
 async function handleSaveSiteName(){
   config.siteName = el('s_siteName').value.trim() || 'Maintenance Tracker';
   await DB.setConfig(config);
@@ -1287,6 +1318,7 @@ el('addCommonIssueBtn').addEventListener('click', handleAddCommonIssue);
 el('addDepartmentBtn').addEventListener('click', handleAddDepartment);
 el('addWalkFaultBtn').addEventListener('click', handleAddWalkFault);
 el('addRoomBtn').addEventListener('click', handleAddRoom);
+el('bulkImportRoomsBtn').addEventListener('click', handleBulkImportRooms);
 el('s_siteName').addEventListener('blur', handleSaveSiteName);
 
 // ---------------- init ----------------
