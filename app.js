@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.8';
+const APP_VERSION = '0.1.9';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -670,9 +670,29 @@ let walkAreas = [];
 let walkIndex = 0;
 let walkData = {}; // { [area]: { faults: Set<string>, note: string } }
 
+// Walk order: floors highest-to-lowest (9th Floor down to 1st, however
+// they're named — first number found in the area name), then any
+// non-floor areas (Bar, Kitchen, Reception, ...) after, in whatever
+// order they're listed in Settings. This only affects the walk's own
+// step order — the main job list still groups by config.areas' order.
+function floorNumber(area){
+  const m = String(area).match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function walkAreaOrder(areas){
+  const floors = [], others = [];
+  areas.forEach(a=>{
+    const n = floorNumber(a);
+    if(n !== null) floors.push({a, n}); else others.push(a);
+  });
+  floors.sort((x,y)=> y.n - x.n);
+  return [...floors.map(f=>f.a), ...others];
+}
+
 function openWalkWizard(){
   if(!(config.areas||[]).length){ toast('Add areas in Settings first'); return; }
-  walkAreas = [...config.areas];
+  walkAreas = walkAreaOrder(config.areas);
   walkIndex = 0;
   walkData = {};
   walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '' });
