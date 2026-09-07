@@ -37,7 +37,7 @@ firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {
   // works, just without the offline cache.
 });
 
-let currentUser = null; // { uid, role, name }
+let currentUser = null; // { uid, role, name, department }
 
 const DB = {
   // ---- auth ----
@@ -78,7 +78,7 @@ const DB = {
         callback(null);
         return;
       }
-      currentUser = { uid: user.uid, role: profile.role, name: profile.name || '' };
+      currentUser = { uid: user.uid, role: profile.role, name: profile.name || '', department: profile.department || '' };
       callback(currentUser);
     });
   },

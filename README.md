@@ -92,13 +92,26 @@ account, or repurpose one — e.g. rename its `name` field — for yourself.)
    **production mode** (the rules file below replaces the default).
 2. In the Firestore console, manually add a collection called `users`.
    For each person, add a document whose **Document ID** is that
-   person's UID (from step 3), with two fields:
+   person's UID (from step 3), with three fields:
    - `role` (string) = `maintenance`, `housekeeping`, or `management`
    - `name` (string) = their display name, e.g. `Duncan` — this is what
      shows up on jobs they log, so you can tell who did what.
+   - `department` (string) = which department they actually belong to,
+     e.g. `Maintenance`, `Reception`, `Night Team`, `Duty Manager` — used
+     to auto-tag jobs with who reported them (see "Departments and the
+     'Reported by' tag" below). It's independent of `role`: night staff
+     and duty managers, for example, are usually given the Housekeeping
+     *role* (so they can raise reports) but should get their own real
+     *department* here so their reports aren't mislabelled.
 
    This is what the security rules check — it's why only you (via the
    console) can grant someone a role, never the app itself.
+
+   **If you're adding `department` to accounts that already existed
+   before this field was introduced**, go back through each person's
+   `users/{uid}` document in the Firestore console and add it — nothing
+   breaks without it (jobs just fall back to a generic department name),
+   but reports won't be correctly tagged until it's set.
 
 ### 5. Deploy the security rules
 
@@ -187,6 +200,16 @@ working with no signal once it's loaded once.
 - Every job now shows who logged it and when (date + time), and who last
   updated it and when if that's different — visible in the job list
   (compact) and the job detail view (full).
+- Every job also carries a **"Reported by"** department tag — who it
+  actually came from, separate from who typed it in. Housekeeping's own
+  reports and Fire & Security Walk findings tag themselves automatically
+  from the reporter's department; when Maintenance logs a job on behalf
+  of someone else (e.g. a phone call from Reception), the New Job dialog
+  has a "Reported by" picker defaulting to Maintenance's own department.
+  ⚙ Settings → **Departments** is the editable list this picker draws
+  from — seeded with Housekeeping, Reception, Night Team, Duty Manager,
+  Maintenance and Fire & Security Walk, edit it to match this hotel's
+  actual departments.
 - Notes are a running, timestamped thread rather than one overwritable
   text box — each note you add is its own entry, permanently signed
   with who wrote it and when, so earlier notes never get lost or
@@ -201,10 +224,37 @@ working with no signal once it's loaded once.
   lost either, since it's computed fresh from the real job data every
   time you reopen it. Tap a notification to jump straight to that job.
 
+### Fire & Security Walk
+
+The clipboard-checklist icon in the header (Maintenance and
+Housekeeping-role accounts —
+so it covers maintenance, night staff and duty managers doing the walk)
+opens a floor-by-floor checklist, one step per Area. On each floor: tap
+any faults found (e.g. "Corridor lighting", "P10 fault") — leave them
+all untapped if the floor's all in order — and optionally add a
+freehand note, then **Next floor**. Nothing is saved until you tap
+**Finish walk** on the last floor, so **Cancel walk** at any point
+throws the whole walk away with nothing logged — no half-finished
+findings left behind.
+
+Each fault you tap becomes its own job, tagged `Fire & Security Walk`
+and logged against a "**{Floor} Corridor**" room that's created
+automatically the first time that floor gets a finding (e.g. "3rd Floor
+Corridor") — so walk findings group under the same floor/area as
+everything else, without needing a numbered room. A floor's optional
+note is attached to whichever job(s) that floor produced; if you write
+a note but tap no faults, it's logged as its own "Walk note" job so it
+isn't lost.
+
+⚙ Settings → **Walk Faults** is the editable checklist offered on each
+floor — seeded with the common ones (Corridor lighting, P10 fault, Fire
+door, Fire extinguisher, Emergency lighting, Exit sign, Other), edit it
+to match what this hotel's walks actually check for.
+
 ## Adding someone new, or rotating/revoking a PIN
 
 - **New person**: repeat steps 3–4 above for them — one Firebase Auth
-  user, one `users/{uid}` document with their role and name.
+  user, one `users/{uid}` document with their role, name and department.
 - **PIN change or someone leaving**: Firebase console →
   **Authentication → Users** → find their account → **⋮ → Reset
   password** (to change their PIN), or **⋮ → Delete account** (to revoke

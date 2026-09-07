@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.7';
+const APP_VERSION = '0.1.8';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -12,11 +12,11 @@ const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
-let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
+let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "All";
 let editingId = null;
 let currentRole = null;
-let currentUser = null;   // { uid, role, name }
+let currentUser = null;   // { uid, role, name, department }
 let sheetReadOnly = false;
 let lastSeenAt = null;
 
@@ -154,6 +154,7 @@ function applyRolePermissions(role){
   const roleLabel = role[0].toUpperCase()+role.slice(1);
   el('roleBadge').textContent = currentUser.name ? `${currentUser.name} · ${roleLabel}` : roleLabel;
   el('settingsBtn').style.display = (role === 'maintenance') ? '' : 'none';
+  el('walkBtn').style.display = (role === 'maintenance' || role === 'housekeeping') ? '' : 'none';
 
   if(role === 'maintenance'){
     el('fabAdd').style.display = '';
@@ -176,12 +177,29 @@ function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [] };
+    config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
     if(!config.areas) config.areas = [];
     if(!config.commonIssues) config.commonIssues = [];
+    // Departments and walk faults get a sensible starter list the first
+    // time this config doc is ever seen missing them — distinct from a
+    // deliberately emptied list, which stays empty. Only maintenance can
+    // write config (see firestore.rules), so only seed from that role.
+    let needsSeed = false;
+    if(!config.departments){
+      config.departments = ['Housekeeping','Reception','Night Team','Duty Manager','Maintenance','Fire & Security Walk'];
+      needsSeed = true;
+    }
+    if(!config.walkFaults){
+      config.walkFaults = ['Corridor lighting','P10 fault','Fire door','Fire extinguisher','Emergency lighting','Exit sign','Other'];
+      needsSeed = true;
+    }
+    if(needsSeed && currentRole === 'maintenance'){
+      DB.setConfig(config).catch(()=>{});
+    }
     renderHeader();
     renderAreaSelects();
     renderIssuePresetSelects();
+    renderSourceSelect();
     render();
   });
   unsubLastSeen = DB.onLastSeenChange(ts => {
@@ -231,6 +249,13 @@ function renderIssuePresetSelects(){
     (config.commonIssues||[]).map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
   el('f_issuePreset').innerHTML = options;
   el('r_issuePreset').innerHTML = options;
+}
+
+function renderSourceSelect(){
+  const current = el('f_source').value;
+  el('f_source').innerHTML = `<option value="">Select…</option>` +
+    (config.departments||[]).map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  if((config.departments||[]).includes(current)) el('f_source').value = current;
 }
 
 function renderRoomSelect(){
@@ -401,8 +426,9 @@ function render(){
         const canEdit = currentRole === 'maintenance';
         const noteEntries = normalizeNotes(j);
         const lastNote = noteEntries[noteEntries.length - 1];
+        const plaqueClass = 'plaque' + (j.room.length > 7 ? ' long' : '');
         card.innerHTML = `
-          <div class="plaque">${escapeHtml(j.room)}</div>
+          <div class="${plaqueClass}">${escapeHtml(j.room)}</div>
           <div class="card-body">
             <div class="card-top">
               <div class="issue">${escapeHtml(j.issue || '(no description)')}</div>
@@ -412,8 +438,8 @@ function render(){
             </div>
             <div class="meta">
               ${j.createdByName
-                ? `<div>Logged ${fmtDateTime(j.dateLogged)} · ${escapeHtml(j.createdByName)}</div>`
-                : `<div>${fmtDateTime(j.dateLogged)}</div>`}
+                ? `<div>Logged ${fmtDateTime(j.dateLogged)} · ${escapeHtml(j.createdByName)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`
+                : `<div>${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`}
               ${(j.updatedByName && j.updatedAt && j.updatedAt !== j.dateLogged)
                 ? `<div>Updated ${fmtDateTime(j.updatedAt)} · ${escapeHtml(j.updatedByName)}</div>` : ''}
             </div>
@@ -473,6 +499,7 @@ function openJobSheet(job){
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
+  el('f_source').value = job ? (job.source||'') : (currentUser.department || '');
   // New jobs always start Open — status only becomes changeable once a
   // job exists, and only maintenance can change it (cycle button or here).
   el('statusField').style.display = job ? '' : 'none';
@@ -482,7 +509,8 @@ function openJobSheet(job){
     const hasUpdate = job.updatedByName && job.updatedAt && job.updatedAt !== job.dateLogged;
     const updatedLine = hasUpdate
       ? ` · Updated by ${job.updatedByName} on ${fmtDateTime(job.updatedAt)}` : '';
-    el('sheetAudit').textContent = createdLine + updatedLine;
+    const sourceLine = job.source ? ` · Reported by ${job.source}` : '';
+    el('sheetAudit').textContent = createdLine + updatedLine + sourceLine;
   } else {
     el('sheetAudit').textContent = '';
   }
@@ -491,7 +519,7 @@ function openJobSheet(job){
   el('f_newNote').value = '';
   el('addNoteRow').style.display = (job && canEdit) ? 'flex' : 'none';
 
-  ['f_room','f_issuePreset','f_issue','f_status'].forEach(id=>{
+  ['f_room','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
   el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
@@ -577,6 +605,7 @@ async function handleSaveJob(){
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
+  job.source = el('f_source').value || currentUser.department || 'Maintenance';
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
   stampAudit(job, isNew);
 
@@ -617,6 +646,7 @@ async function handleSubmitReport(){
     issue,
     status: 'Open',
     notes: '',
+    source: currentUser.department || 'Housekeeping',
     dateLogged: new Date().toISOString(),
     dateClosed: ''
   };
@@ -626,12 +656,134 @@ async function handleSubmitReport(){
   toast('Reported — thanks!');
 }
 
+// ---------------- Fire & Security Walk wizard ----------------
+// Floor-by-floor (one step per Area), each with a multi-select fault
+// checklist that defaults to none selected ("all in order") plus an
+// optional freehand note. Nothing is written to Firestore until "Finish
+// walk" on the last floor — everything lives in memory until then, so
+// "Cancel walk" can discard it all with zero partial writes. Findings
+// attach to an auto-created "{Area} Corridor" room per floor (a
+// floor-unique room number, so different floors' corridor jobs don't
+// collide into one room group).
+
+let walkAreas = [];
+let walkIndex = 0;
+let walkData = {}; // { [area]: { faults: Set<string>, note: string } }
+
+function openWalkWizard(){
+  if(!(config.areas||[]).length){ toast('Add areas in Settings first'); return; }
+  walkAreas = [...config.areas];
+  walkIndex = 0;
+  walkData = {};
+  walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '' });
+  renderWalkStep();
+  el('walkBackdrop').classList.add('open');
+}
+
+function closeWalkWizard(){
+  el('walkBackdrop').classList.remove('open');
+}
+
+function renderWalkStep(){
+  const area = walkAreas[walkIndex];
+  const data = walkData[area];
+  el('walkProgress').textContent = `Floor ${walkIndex + 1} of ${walkAreas.length}`;
+  el('walkFloorName').textContent = area;
+
+  const wrap = el('walkFaultChips');
+  wrap.innerHTML = '';
+  (config.walkFaults||[]).forEach(f=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (data.faults.has(f) ? ' active' : '');
+    chip.textContent = f;
+    chip.addEventListener('click', ()=>{
+      if(data.faults.has(f)) data.faults.delete(f); else data.faults.add(f);
+      chip.classList.toggle('active');
+    });
+    wrap.appendChild(chip);
+  });
+
+  el('walkNote').value = data.note;
+  el('walkBackBtn').style.display = walkIndex > 0 ? '' : 'none';
+  el('walkNextBtn').textContent = (walkIndex === walkAreas.length - 1) ? 'Finish walk' : 'Next floor';
+}
+
+function saveCurrentWalkStep(){
+  const area = walkAreas[walkIndex];
+  if(area) walkData[area].note = el('walkNote').value.trim();
+}
+
+function walkGoBack(){
+  saveCurrentWalkStep();
+  if(walkIndex > 0){
+    walkIndex--;
+    renderWalkStep();
+  }
+}
+
+async function walkGoNext(){
+  saveCurrentWalkStep();
+  if(walkIndex === walkAreas.length - 1){
+    await finishWalk();
+  } else {
+    walkIndex++;
+    renderWalkStep();
+  }
+}
+
+async function createWalkJob(area, issue, note){
+  const job = {
+    id: uid('j'),
+    room: `${area} Corridor`,
+    issue,
+    status: 'Open',
+    source: 'Fire & Security Walk',
+    dateLogged: new Date().toISOString(),
+    dateClosed: ''
+  };
+  if(note){
+    job.notes = [{
+      text: note,
+      authorUid: currentUser.uid,
+      authorName: currentUser.name,
+      createdAt: job.dateLogged
+    }];
+  }
+  stampAudit(job, true);
+  await DB.putJob(job);
+}
+
+async function finishWalk(){
+  const areasWithFindings = walkAreas.filter(a => walkData[a].faults.size > 0 || walkData[a].note);
+  if(areasWithFindings.length === 0){
+    closeWalkWizard();
+    toast('Walk logged — all in order');
+    return;
+  }
+  for(const area of areasWithFindings){
+    const data = walkData[area];
+    await ensureRoomExists(`${area} Corridor`, area);
+    const faults = Array.from(data.faults);
+    if(faults.length === 0){
+      await createWalkJob(area, 'Walk note', data.note);
+    } else {
+      for(const fault of faults){
+        await createWalkJob(area, fault, data.note);
+      }
+    }
+  }
+  closeWalkWizard();
+  toast('Walk logged');
+}
+
 // ---------------- settings sheet (maintenance only) ----------------
 
 function openSettings(){
   el('s_siteName').value = config.siteName || '';
   renderAreaTags();
   renderCommonIssueTags();
+  renderDepartmentTags();
+  renderWalkFaultTags();
   renderRoomList();
   el('settingsBackdrop').classList.add('open');
 }
@@ -666,6 +818,38 @@ function renderCommonIssueTags(){
       config.commonIssues = config.commonIssues.filter(x=>x!==i);
       await DB.setConfig(config);
       toast('Common issue removed');
+    });
+    wrap.appendChild(tag);
+  });
+}
+
+function renderDepartmentTags(){
+  const wrap = el('departmentTagList');
+  wrap.innerHTML = '';
+  (config.departments||[]).forEach(d=>{
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `<span>${escapeHtml(d)}</span><button data-department="${escapeHtml(d)}">×</button>`;
+    tag.querySelector('button').addEventListener('click', async ()=>{
+      config.departments = config.departments.filter(x=>x!==d);
+      await DB.setConfig(config);
+      toast('Department removed');
+    });
+    wrap.appendChild(tag);
+  });
+}
+
+function renderWalkFaultTags(){
+  const wrap = el('walkFaultTagList');
+  wrap.innerHTML = '';
+  (config.walkFaults||[]).forEach(f=>{
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `<span>${escapeHtml(f)}</span><button data-fault="${escapeHtml(f)}">×</button>`;
+    tag.querySelector('button').addEventListener('click', async ()=>{
+      config.walkFaults = config.walkFaults.filter(x=>x!==f);
+      await DB.setConfig(config);
+      toast('Walk fault removed');
     });
     wrap.appendChild(tag);
   });
@@ -706,6 +890,26 @@ async function handleAddCommonIssue(){
     await DB.setConfig(config);
   }
   el('s_newCommonIssue').value = '';
+}
+
+async function handleAddDepartment(){
+  const val = el('s_newDepartment').value.trim();
+  if(!val) return;
+  if(!(config.departments||[]).includes(val)){
+    config.departments = [...(config.departments||[]), val];
+    await DB.setConfig(config);
+  }
+  el('s_newDepartment').value = '';
+}
+
+async function handleAddWalkFault(){
+  const val = el('s_newWalkFault').value.trim();
+  if(!val) return;
+  if(!(config.walkFaults||[]).includes(val)){
+    config.walkFaults = [...(config.walkFaults||[]), val];
+    await DB.setConfig(config);
+  }
+  el('s_newWalkFault').value = '';
 }
 
 async function handleAddRoom(){
@@ -751,6 +955,12 @@ el('reportCancelBtn').addEventListener('click', closeReportSheet);
 el('reportSubmitBtn').addEventListener('click', handleSubmitReport);
 el('reportBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
 
+el('walkBtn').addEventListener('click', openWalkWizard);
+el('walkCancelBtn').addEventListener('click', closeWalkWizard);
+el('walkBackBtn').addEventListener('click', walkGoBack);
+el('walkNextBtn').addEventListener('click', walkGoNext);
+el('walkBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkBackdrop') closeWalkWizard(); });
+
 el('searchInput').addEventListener('input', render);
 el('showAllBtn').addEventListener('click', ()=>{
   el('searchInput').value = '';
@@ -772,6 +982,8 @@ el('closeSettingsBtn').addEventListener('click', async ()=>{
 el('settingsBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
 el('addAreaBtn').addEventListener('click', handleAddArea);
 el('addCommonIssueBtn').addEventListener('click', handleAddCommonIssue);
+el('addDepartmentBtn').addEventListener('click', handleAddDepartment);
+el('addWalkFaultBtn').addEventListener('click', handleAddWalkFault);
 el('addRoomBtn').addEventListener('click', handleAddRoom);
 el('s_siteName').addEventListener('blur', handleSaveSiteName);
 
