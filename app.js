@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.22';
+const APP_VERSION = '0.1.23';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -333,7 +333,7 @@ function computeNotifications(){
       if(t > since){
         items.push({
           time: t, tag: 'New',
-          title: `Room ${j.room} — ${j.issue || '(no description)'}`,
+          title: `${j.room} — ${j.issue || '(no description)'}`,
           meta: `Reported by ${j.createdByName || 'someone'} · ${fmtDateTime(j.dateLogged)}`,
           job: j
         });
@@ -345,7 +345,7 @@ function computeNotifications(){
       if(t > since){
         items.push({
           time: t, tag: 'Updated',
-          title: `Room ${j.room} — now ${j.status}`,
+          title: `${j.room} — now ${j.status}`,
           meta: `By ${j.updatedByName || 'someone'} · ${fmtDateTime(j.updatedAt)}`,
           job: j
         });
@@ -553,7 +553,7 @@ function openJobSheet(job){
   const canEdit = currentRole === 'maintenance';
   sheetReadOnly = !canEdit;
   editingId = job ? job.id : null;
-  el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — Room ${job.room}` : 'New job';
+  el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — ${job.room}` : 'New job';
   el('f_area').value = job ? roomArea(job.room) : '';
   populateRoomSelect('f_room', 'f_area');
   if(job) el('f_room').value = job.room;
@@ -693,7 +693,7 @@ function openDeleteConfirm(){
   if(currentRole !== 'maintenance' || !editingId) return;
   const job = jobs.find(j=>j.id===editingId);
   if(!job) return;
-  el('deleteConfirmSummary').textContent = `Room ${job.room} — ${job.issue || '(no description)'}`;
+  el('deleteConfirmSummary').textContent = `${job.room} — ${job.issue || '(no description)'}`;
   el('deleteReason').value = '';
   el('deleteConfirmBackdrop').classList.add('open');
 }
