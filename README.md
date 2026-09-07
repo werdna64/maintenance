@@ -135,8 +135,10 @@ This closes that gap. A job's `createdByUid`/`createdByName`/`dateLogged`
 also become permanently unchangeable after creation, for the same
 reason. The notes thread is enforced append-only too — once a job has
 notes as a list, an update may only add a new entry to the end, never
-edit or remove an earlier one. Everyday use of the app is unaffected —
-this only blocks requests that don't match how the app actually behaves.
+edit or remove an earlier one. Walk History entries get the same honest-
+attribution check on `conductedByUid`/`conductedByName` when a walk is
+logged. Everyday use of the app is unaffected — this only blocks
+requests that don't match how the app actually behaves.
 
 ### 6. Get your web app config
 
@@ -229,7 +231,8 @@ working with no signal once it's loaded once.
 The clipboard-checklist icon in the header (Maintenance and
 Housekeeping-role accounts —
 so it covers maintenance, night staff and duty managers doing the walk)
-opens a floor-by-floor checklist, one step per Area. On each floor: tap
+opens a floor-by-floor checklist, walked highest floor to lowest (then
+any non-numbered areas like Bar or Kitchen after). On each floor: tap
 any faults found (e.g. "Corridor lighting", "P10 fault") — leave them
 all untapped if the floor's all in order — and optionally add a
 freehand note, then **Next floor**. Nothing is saved until you tap
@@ -250,6 +253,14 @@ isn't lost.
 floor — seeded with the common ones (Corridor lighting, P10 fault, Fire
 door, Fire extinguisher, Emergency lighting, Exit sign, Other), edit it
 to match what this hotel's walks actually check for.
+
+**Walk History** — the clock icon next to it opens a report of every
+walk ever completed, newest first: when, who did it, and a floor-by-floor
+breakdown (an "All clear" badge, or the faults found and any note).
+Crucially, **finishing a walk records it even when every floor is all
+clear** — so this is also your proof a walk actually happened on a given
+day, not just a log of faults. Visible to everyone signed in (including
+Management), since it's read-only.
 
 ## Adding someone new, or rotating/revoking a PIN
 

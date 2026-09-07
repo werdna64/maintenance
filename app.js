@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.9';
+const APP_VERSION = '0.1.10';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -12,6 +12,7 @@ const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
+let walks = [];       // completed Fire & Security Walk sessions
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "All";
 let editingId = null;
@@ -20,7 +21,7 @@ let currentUser = null;   // { uid, role, name, department }
 let sheetReadOnly = false;
 let lastSeenAt = null;
 
-let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null;
+let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null;
 
 const el = id => document.getElementById(id);
 
@@ -145,7 +146,8 @@ async function handleLogout(){
   if(unsubRooms) unsubRooms();
   if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
-  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = null;
+  if(unsubWalks) unsubWalks();
+  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = null;
   lastSeenAt = null;
   await DB.signOut();
 }
@@ -176,6 +178,7 @@ function applyRolePermissions(role){
 function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
+  unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubConfig = DB.onConfigChange(cfg => {
     config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
     if(!config.areas) config.areas = [];
@@ -669,6 +672,7 @@ async function handleSubmitReport(){
 let walkAreas = [];
 let walkIndex = 0;
 let walkData = {}; // { [area]: { faults: Set<string>, note: string } }
+let walkStartedAt = null;
 
 // Walk order: floors highest-to-lowest (9th Floor down to 1st, however
 // they're named — first number found in the area name), then any
@@ -695,6 +699,7 @@ function openWalkWizard(){
   walkAreas = walkAreaOrder(config.areas);
   walkIndex = 0;
   walkData = {};
+  walkStartedAt = new Date().toISOString();
   walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '' });
   renderWalkStep();
   el('walkBackdrop').classList.add('open');
@@ -774,26 +779,92 @@ async function createWalkJob(area, issue, note){
 }
 
 async function finishWalk(){
-  const areasWithFindings = walkAreas.filter(a => walkData[a].faults.size > 0 || walkData[a].note);
-  if(areasWithFindings.length === 0){
-    closeWalkWizard();
-    toast('Walk logged — all in order');
-    return;
-  }
-  for(const area of areasWithFindings){
+  const floors = walkAreas.map(area=>{
     const data = walkData[area];
-    await ensureRoomExists(`${area} Corridor`, area);
     const faults = Array.from(data.faults);
-    if(faults.length === 0){
-      await createWalkJob(area, 'Walk note', data.note);
+    return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note };
+  });
+
+  for(const floor of floors){
+    if(floor.allClear) continue;
+    await ensureRoomExists(`${floor.area} Corridor`, floor.area);
+    if(floor.faults.length === 0){
+      await createWalkJob(floor.area, 'Walk note', floor.note);
     } else {
-      for(const fault of faults){
-        await createWalkJob(area, fault, data.note);
+      for(const fault of floor.faults){
+        await createWalkJob(floor.area, fault, floor.note);
       }
     }
   }
+
+  // Record the walk itself — even an all-clear one — so there's proof
+  // the walk actually happened, not just a trail of faults found.
+  const walk = {
+    id: uid('w'),
+    conductedByUid: currentUser.uid,
+    conductedByName: currentUser.name,
+    startedAt: walkStartedAt,
+    finishedAt: new Date().toISOString(),
+    floors
+  };
+  await DB.putWalk(walk);
+
   closeWalkWizard();
-  toast('Walk logged');
+  toast(floors.some(f => !f.allClear) ? 'Walk logged' : 'Walk logged — all in order');
+}
+
+// ---------------- Walk History report (all signed-in roles) ----------------
+
+function openWalkHistory(){
+  renderWalkHistory();
+  el('walkHistoryBackdrop').classList.add('open');
+}
+
+function closeWalkHistory(){
+  el('walkHistoryBackdrop').classList.remove('open');
+}
+
+function renderWalkHistory(){
+  const wrap = el('walkHistoryList');
+  const sorted = [...walks].sort((a,b)=> (b.startedAt||'').localeCompare(a.startedAt||''));
+
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No walks logged yet</div>`;
+    return;
+  }
+
+  wrap.innerHTML = sorted.map(w=>{
+    const floors = w.floors || [];
+    const totalFaults = floors.reduce((n,f)=> n + (f.faults ? f.faults.length : 0), 0);
+    const anyIssues = floors.some(f=>!f.allClear);
+    const summary = !anyIssues ? 'All clear'
+      : (totalFaults > 0 ? `${totalFaults} issue${totalFaults===1?'':'s'} found` : 'Notes only');
+
+    return `
+      <div class="walk-entry">
+        <div class="walk-entry-head">
+          <div>
+            <div class="walk-entry-date">${fmtDateTime(w.startedAt)}</div>
+            <div class="walk-entry-by">${escapeHtml(w.conductedByName || 'someone')}</div>
+          </div>
+          <span class="walk-entry-summary ${anyIssues ? 'has-issues' : 'clear'}">${escapeHtml(summary)}</span>
+        </div>
+        <div class="walk-entry-floors">
+          ${floors.map(f=>`
+            <div class="walk-floor-row">
+              <span class="walk-floor-label">${escapeHtml(f.area)}</span>
+              ${f.allClear
+                ? `<span class="walk-clear-badge">All clear</span>`
+                : (f.faults && f.faults.length
+                  ? `<span class="walk-fault-list">${f.faults.map(fault=>`<span class="fault-chip">${escapeHtml(fault)}</span>`).join('')}</span>`
+                  : '')}
+              ${f.note ? `<div class="walk-floor-note">${escapeHtml(f.note)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // ---------------- settings sheet (maintenance only) ----------------
@@ -980,6 +1051,10 @@ el('walkCancelBtn').addEventListener('click', closeWalkWizard);
 el('walkBackBtn').addEventListener('click', walkGoBack);
 el('walkNextBtn').addEventListener('click', walkGoNext);
 el('walkBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkBackdrop') closeWalkWizard(); });
+
+el('walkHistoryBtn').addEventListener('click', openWalkHistory);
+el('walkHistoryCloseBtn').addEventListener('click', closeWalkHistory);
+el('walkHistoryBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkHistoryBackdrop') closeWalkHistory(); });
 
 el('searchInput').addEventListener('input', render);
 el('showAllBtn').addEventListener('click', ()=>{

@@ -109,6 +109,16 @@ const DB = {
     await firestore.collection('rooms').doc(id).delete();
   },
 
+  // ---- walk history (realtime) ----
+  onWalksChange(callback) {
+    return firestore.collection('walks').onSnapshot((snap) => {
+      callback(snap.docs.map(d => d.data()));
+    });
+  },
+  async putWalk(walk) {
+    await firestore.collection('walks').doc(walk.id).set(walk);
+  },
+
   // ---- config (realtime) ----
   onConfigChange(callback) {
     return firestore.collection('config').doc('main').onSnapshot((doc) => {

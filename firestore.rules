@@ -77,6 +77,14 @@ service cloud.firestore {
           && notesAppendOnly();
     }
 
+    // A walk session must be honestly attributed to whoever actually ran
+    // it, same reasoning as isHonestJobCreate() above.
+    function isHonestWalkCreate() {
+      let d = request.resource.data;
+      return d.conductedByUid == request.auth.uid
+          && d.conductedByName == displayName();
+    }
+
     // Each person's account has a /users/{uid} doc naming their role and
     // display name. Only that account can read its own doc; nobody can
     // write one from the client — accounts are set up by hand in the
@@ -112,6 +120,18 @@ service cloud.firestore {
     match /config/{doc} {
       allow read: if signedIn();
       allow write: if isMaintenance();
+    }
+
+    // Walk sessions: a record that a Fire & Security Walk happened, one
+    // per completed walk (including a fully "all in order" one — that's
+    // the proof the walk was actually done). Same shape as jobs: anyone
+    // signed in can read the history report; maintenance or housekeeping
+    // can log one (honestly attributed to themselves); only maintenance
+    // can correct/remove one afterwards.
+    match /walks/{walkId} {
+      allow read: if signedIn();
+      allow create: if (isMaintenance() || isHousekeeping()) && isHonestWalkCreate();
+      allow update, delete: if isMaintenance();
     }
 
     // Each person tracks their own "last checked notifications at" time,

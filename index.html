@@ -93,6 +93,12 @@
           <polyline points="9 14 11 16 15 12"></polyline>
         </svg>
       </button>
+      <button class="icon-btn" id="walkHistoryBtn" aria-label="Walk History">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <polyline points="12 7 12 12 16 14"></polyline>
+        </svg>
+      </button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
       <button class="icon-btn" id="logoutBtn" aria-label="Log out">
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -225,6 +231,17 @@
       <button class="btn btn-ghost" id="walkCancelBtn">Cancel walk</button>
       <button class="btn btn-ghost" id="walkBackBtn" style="display:none;">Back</button>
       <button class="btn btn-primary" id="walkNextBtn">Next floor</button>
+    </div>
+  </div>
+</div>
+
+<!-- Walk History report: every Fire & Security Walk ever completed -->
+<div class="sheet-backdrop" id="walkHistoryBackdrop">
+  <div class="sheet">
+    <h2>Walk History</h2>
+    <div id="walkHistoryList"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="walkHistoryCloseBtn">Close</button>
     </div>
   </div>
 </div>
