@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.24';
+const APP_VERSION = '0.1.25';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -180,6 +180,7 @@ async function handleLogout(){
   if(unsubWalks) unsubWalks();
   unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = null;
   lastSeenAt = null;
+  lastAlertedTime = null; // a different person may sign in next on this device
   await DB.signOut();
 }
 
@@ -321,6 +322,43 @@ function renderRoomSelect(){
 // the app is closed, but nothing is lost either — reopening the app
 // recomputes exactly what happened since last time, however long ago.
 
+// A short beep for a genuinely new notification arriving while the app
+// is open — a synthesized tone rather than an audio file, so there's
+// nothing to fetch or cache. One AudioContext is created lazily and
+// reused (browsers require a real user gesture to unlock audio, and by
+// the time any notification exists the user has already signed in —
+// a tap — so the context created on that first call stays usable for
+// the rest of the session). Failing silently (blocked, unsupported) is
+// fine — the visual badge is the notification; sound is a bonus.
+let notifAudioCtx = null;
+function playNotifSound(){
+  try{
+    if(!notifAudioCtx) notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(notifAudioCtx.state === 'suspended') notifAudioCtx.resume().catch(()=>{});
+    const osc = notifAudioCtx.createOscillator();
+    const gain = notifAudioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    const now = notifAudioCtx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    osc.connect(gain);
+    gain.connect(notifAudioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }catch(e){
+    // Audio blocked or unsupported — the visual badge still works.
+  }
+}
+
+// Highest notification timestamp already alerted on this session — set
+// on the very first computation after login without a sound (so
+// reopening the app after being away doesn't blast a backlog of beeps
+// for everything that happened while it was closed), then only beeps
+// for something genuinely newer arriving after that.
+let lastAlertedTime = null;
+
 function computeNotifications(){
   if(!currentUser || !lastSeenAt) return [];
   const since = new Date(lastSeenAt).getTime();
@@ -359,6 +397,12 @@ function computeNotifications(){
 
 function renderNotifications(){
   const items = computeNotifications();
+
+  if(items.length > 0){
+    const newestTime = items[0].time;
+    if(lastAlertedTime !== null && newestTime > lastAlertedTime) playNotifSound();
+    lastAlertedTime = (lastAlertedTime === null) ? newestTime : Math.max(lastAlertedTime, newestTime);
+  }
 
   const countEl = el('notifCount');
   if(items.length > 0){

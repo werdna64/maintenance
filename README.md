@@ -268,6 +268,14 @@ working with no signal once it's loaded once.
   app is open — closing the app doesn't send an alert, but nothing is
   lost either, since it's computed fresh from the real job data every
   time you reopen it. Tap a notification to jump straight to that job.
+  A short beep plays for something that arrives while the app is
+  genuinely open and being watched — not for the backlog computed when
+  you first open it after being away, which would otherwise mean a
+  burst of beeps for everything that happened while it was closed. This
+  is a synthesized tone (no audio file involved) and needs no
+  permission beyond the same tap-to-sign-in every phone already
+  requires to unlock audio playback — there's no separate settings
+  toggle for it yet.
 
 ### Fire & Security Walk
 
