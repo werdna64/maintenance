@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.26">
+<link rel="stylesheet" href="style.css?v=0.1.27">
 </head>
 <body>
 
@@ -416,8 +416,9 @@
         completed jobs too.</li>
         <li>Every area starts collapsed — tap its heading to open it. A
         number badge shows how many jobs are inside; it turns
-        <strong>red</strong> if one of them is new since you last
-        checked notifications.</li>
+        <strong>red</strong> if one of them is new. Opening that job
+        clears its own red flag — no need to go through the 🔔 panel
+        just to dismiss something you've already looked at.</li>
         <li>Tap a job to see the full detail — who logged it, when, and
         the complete note history.</li>
         <li>Use the search box to jump to a room number, or the status
@@ -528,7 +529,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.26"></script>
-<script src="app.js?v=0.1.26"></script>
+<script src="db.js?v=0.1.27"></script>
+<script src="app.js?v=0.1.27"></script>
 </body>
 </html>

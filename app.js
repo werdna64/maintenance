@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.26';
+const APP_VERSION = '0.1.27';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -16,6 +16,7 @@ let walks = [];       // completed Fire & Security Walk sessions
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
 let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
+let viewedJobIds = new Set(); // jobs opened this session — no longer "new" even if within the unseen window
 let editingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
@@ -181,6 +182,7 @@ async function handleLogout(){
   unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = null;
   lastSeenAt = null;
   lastAlertedTime = null; // a different person may sign in next on this device
+  viewedJobIds = new Set();
   await DB.signOut();
 }
 
@@ -365,6 +367,7 @@ function computeNotifications(){
   const items = [];
 
   jobs.forEach(j=>{
+    if(viewedJobIds.has(j.id)) return; // already opened it — no longer "new"
     // New job reported by someone else — surfaced to Maintenance.
     if(currentRole === 'maintenance' && j.createdByUid && j.createdByUid !== currentUser.uid){
       const t = new Date(j.dateLogged).getTime();
@@ -606,6 +609,14 @@ function openJobSheet(job){
   const canEdit = currentRole === 'maintenance';
   sheetReadOnly = !canEdit;
   editingId = job ? job.id : null;
+  if(job && !viewedJobIds.has(job.id)){
+    // Opening a job acknowledges just that one — its "new" badge (area
+    // group, notification bell) clears without needing to mark every
+    // other unrelated notification seen too.
+    viewedJobIds.add(job.id);
+    render();
+    renderNotifications();
+  }
   el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — ${job.room}` : 'New job';
   el('f_area').value = job ? roomArea(job.room) : '';
   populateRoomSelect('f_room', 'f_area');

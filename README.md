@@ -215,9 +215,15 @@ working with no signal once it's loaded once.
 - **A red count badge means something new is inside** — the same
   "unseen since you last checked" set the 🔔 notification bell tracks,
   just localized to which area it's in, so a new job doesn't go
-  unnoticed just because its area happens to be collapsed. It clears
-  the same way the bell's own badge does — open and close the
-  notifications panel to mark everything seen.
+  unnoticed just because its area happens to be collapsed. Opening that
+  job clears just its own red flag (the area badge and the bell both
+  update immediately) — you don't have to open the bell panel to
+  dismiss something you've already looked straight at. Opening the
+  bell panel still works too, and clears everything at once. Both are
+  session-only — reloading the app (or a fresh sign-in) can bring a
+  job back as "new" if you looked at it but never opened the
+  notifications panel, since that's the only part that's actually
+  saved.
 - Every new job starts as **Open**, no matter who creates it — the New
   Job dialog doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on
