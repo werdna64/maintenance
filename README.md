@@ -200,6 +200,12 @@ working with no signal once it's loaded once.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
+- The main list defaults to the **Active** filter — everything except
+  Done jobs — so it stays a list of what's actually outstanding instead
+  of accumulating every completed job forever. Tap **All** to see
+  everything including Done, or **Done** to see just the completed
+  ones; the "Show all" button next to search resets both the filter and
+  the search box back to everything in one tap.
 - Every new job starts as **Open**, no matter who creates it — the New
   Job dialog doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on

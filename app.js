@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.17';
+const APP_VERSION = '0.1.18';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -14,7 +14,7 @@ let jobs = [];
 let rooms = [];      // { id, number, area }
 let walks = [];       // completed Fire & Security Walk sessions
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
-let activeFilter = "All";
+let activeFilter = "Active"; // "Active" = everything except Done, the default view
 let editingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
@@ -246,7 +246,7 @@ function renderHeader(){
 function renderChips(){
   const wrap = el('statusChips');
   wrap.innerHTML = '';
-  ['All', ...STATUSES].forEach(s=>{
+  ['Active', 'All', ...STATUSES].forEach(s=>{
     const c = document.createElement('div');
     c.className = 'chip' + (activeFilter===s ? ' active':'');
     c.textContent = s;
@@ -388,7 +388,8 @@ function closeNotifPanel(){
 function render(){
   const q = el('searchInput').value.trim().toLowerCase();
   let filtered = jobs.filter(j=>{
-    if(activeFilter !== 'All' && j.status !== activeFilter) return false;
+    if(activeFilter === 'Active'){ if(j.status === 'Done') return false; }
+    else if(activeFilter !== 'All' && j.status !== activeFilter) return false;
     if(q && !j.room.toLowerCase().includes(q)) return false;
     return true;
   });
