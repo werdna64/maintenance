@@ -400,6 +400,22 @@ the same old version. Tagging `style.css`/`app.js`/`db.js` with a
 version query string forces every browser layer to treat a new release
 as a genuinely different URL, so there's nothing stale left to serve.
 
+**`index.html` itself is fetched network-first** for the same reason,
+one layer up: the query string is purely a client-side cache key — the
+server always returns whatever `app.js` currently is, regardless of
+which old version number an old cached `index.html` asks for. So a
+stale cached `index.html` paired with a freshly-fetched newer `app.js`
+is a real failure mode (a page missing a button a newer script expects
+to wire up), not just a hypothetical one — it caused a genuine crash
+once. `sw.js`'s fetch handler always tries the network for the page
+navigation itself before falling back to cache, so the page structure
+and the scripts it loads stay in sync as long as there's a connection.
+As a second line of defence, `app.js`'s event-wiring calls all go
+through a small `on(id, event, handler)` helper that skips a missing
+element instead of throwing and aborting every wiring call after it —
+so even if a mismatch like that does happen again, it degrades to one
+inert button rather than breaking the whole page.
+
 The **stage** label (`APP_STAGE` in `app.js`, `"stage"` in
 `version.json`) doesn't need to change on every release — only bump it
 when you actually move to the next phase (e.g. handing it to Duncan and

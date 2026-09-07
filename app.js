@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.20';
+const APP_VERSION = '0.1.21';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -25,6 +25,17 @@ let lastSeenAt = null;
 let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null;
 
 const el = id => document.getElementById(id);
+
+// Null-safe event wiring: if index.html and app.js ever briefly mismatch
+// (a stale cached page paired with a freshly-fetched newer script, or
+// simply a typo) this skips the one missing element instead of throwing
+// and aborting every wiring call after it in the same script — a single
+// missing button shouldn't take the logout button down with it.
+function on(id, event, handler){
+  const node = el(id);
+  if(node) node.addEventListener(event, handler);
+  else console.warn(`on(): #${id} not found — skipping "${event}" wiring`);
+}
 
 function toast(msg){
   const t = el('toast');
@@ -1250,52 +1261,52 @@ async function handleSaveSiteName(){
 
 // ---------------- wiring ----------------
 
-el('pinSubmitBtn').addEventListener('click', handleLogin);
-el('usernameInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus(); });
-el('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
-el('logoutBtn').addEventListener('click', handleLogout);
+on('pinSubmitBtn', 'click', handleLogin);
+on('usernameInput', 'keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus(); });
+on('pinInput', 'keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
+on('logoutBtn', 'click', handleLogout);
 
-el('f_room').addEventListener('change', ()=>{
+on('f_room', 'change', ()=>{
   const area = roomArea(el('f_room').value);
   if((config.areas||[]).includes(area)) el('f_area').value = area;
 });
-el('f_issuePreset').addEventListener('change', ()=>{
+on('f_issuePreset', 'change', ()=>{
   if(el('f_issuePreset').value) el('f_issue').value = el('f_issuePreset').value;
 });
-el('cancelBtn').addEventListener('click', closeJobSheet);
-el('saveBtn').addEventListener('click', handleSaveJob);
-el('addNoteBtn').addEventListener('click', handleAddNote);
-el('f_newNote').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleAddNote(); } });
-el('deleteBtn').addEventListener('click', openDeleteConfirm);
-el('deleteConfirmCancelBtn').addEventListener('click', closeDeleteConfirm);
-el('deleteConfirmBtn').addEventListener('click', handleConfirmDelete);
-el('deleteConfirmBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='deleteConfirmBackdrop') closeDeleteConfirm(); });
-el('sheetBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
+on('cancelBtn', 'click', closeJobSheet);
+on('saveBtn', 'click', handleSaveJob);
+on('addNoteBtn', 'click', handleAddNote);
+on('f_newNote', 'keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleAddNote(); } });
+on('deleteBtn', 'click', openDeleteConfirm);
+on('deleteConfirmCancelBtn', 'click', closeDeleteConfirm);
+on('deleteConfirmBtn', 'click', handleConfirmDelete);
+on('deleteConfirmBackdrop', 'click', (e)=>{ if(e.target.id==='deleteConfirmBackdrop') closeDeleteConfirm(); });
+on('sheetBackdrop', 'click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
-el('r_issuePreset').addEventListener('change', ()=>{
+on('r_issuePreset', 'change', ()=>{
   if(el('r_issuePreset').value) el('r_issue').value = el('r_issuePreset').value;
 });
-el('reportCancelBtn').addEventListener('click', closeReportSheet);
-el('reportSubmitBtn').addEventListener('click', handleSubmitReport);
-el('reportBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
+on('reportCancelBtn', 'click', closeReportSheet);
+on('reportSubmitBtn', 'click', handleSubmitReport);
+on('reportBackdrop', 'click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
 
-el('walkBtn').addEventListener('click', openWalkWizard);
-el('walkCancelBtn').addEventListener('click', closeWalkWizard);
-el('walkBackBtn').addEventListener('click', walkGoBack);
-el('walkNextBtn').addEventListener('click', walkGoNext);
-el('walkBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkBackdrop') closeWalkWizard(); });
+on('walkBtn', 'click', openWalkWizard);
+on('walkCancelBtn', 'click', closeWalkWizard);
+on('walkBackBtn', 'click', walkGoBack);
+on('walkNextBtn', 'click', walkGoNext);
+on('walkBackdrop', 'click', (e)=>{ if(e.target.id==='walkBackdrop') closeWalkWizard(); });
 
-el('walkHistoryBtn').addEventListener('click', openWalkHistory);
-el('walkHistoryCloseBtn').addEventListener('click', closeWalkHistory);
-el('walkHistoryBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkHistoryBackdrop') closeWalkHistory(); });
+on('walkHistoryBtn', 'click', openWalkHistory);
+on('walkHistoryCloseBtn', 'click', closeWalkHistory);
+on('walkHistoryBackdrop', 'click', (e)=>{ if(e.target.id==='walkHistoryBackdrop') closeWalkHistory(); });
 
-el('guideBtn').addEventListener('click', openGuide);
-el('loginGuideBtn').addEventListener('click', openGuide);
-el('guideCloseBtn').addEventListener('click', closeGuide);
-el('guideBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='guideBackdrop') closeGuide(); });
+on('guideBtn', 'click', openGuide);
+on('loginGuideBtn', 'click', openGuide);
+on('guideCloseBtn', 'click', closeGuide);
+on('guideBackdrop', 'click', (e)=>{ if(e.target.id==='guideBackdrop') closeGuide(); });
 
-el('searchInput').addEventListener('input', render);
-el('showAllBtn').addEventListener('click', ()=>{
+on('searchInput', 'input', render);
+on('showAllBtn', 'click', ()=>{
   el('searchInput').value = '';
   activeFilter = 'All';
   renderChips();
@@ -1303,23 +1314,23 @@ el('showAllBtn').addEventListener('click', ()=>{
   toast('Showing all jobs');
 });
 
-el('notifBtn').addEventListener('click', openNotifPanel);
-el('notifCloseBtn').addEventListener('click', closeNotifPanel);
-el('notifBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='notifBackdrop') closeNotifPanel(); });
+on('notifBtn', 'click', openNotifPanel);
+on('notifCloseBtn', 'click', closeNotifPanel);
+on('notifBackdrop', 'click', (e)=>{ if(e.target.id==='notifBackdrop') closeNotifPanel(); });
 
-el('settingsBtn').addEventListener('click', openSettings);
-el('closeSettingsBtn').addEventListener('click', async ()=>{
+on('settingsBtn', 'click', openSettings);
+on('closeSettingsBtn', 'click', async ()=>{
   await handleSaveSiteName();
   closeSettings();
 });
-el('settingsBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
-el('addAreaBtn').addEventListener('click', handleAddArea);
-el('addCommonIssueBtn').addEventListener('click', handleAddCommonIssue);
-el('addDepartmentBtn').addEventListener('click', handleAddDepartment);
-el('addWalkFaultBtn').addEventListener('click', handleAddWalkFault);
-el('addRoomBtn').addEventListener('click', handleAddRoom);
-el('bulkImportRoomsBtn').addEventListener('click', handleBulkImportRooms);
-el('s_siteName').addEventListener('blur', handleSaveSiteName);
+on('settingsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
+on('addAreaBtn', 'click', handleAddArea);
+on('addCommonIssueBtn', 'click', handleAddCommonIssue);
+on('addDepartmentBtn', 'click', handleAddDepartment);
+on('addWalkFaultBtn', 'click', handleAddWalkFault);
+on('addRoomBtn', 'click', handleAddRoom);
+on('bulkImportRoomsBtn', 'click', handleBulkImportRooms);
+on('s_siteName', 'blur', handleSaveSiteName);
 
 // ---------------- init ----------------
 
@@ -1346,7 +1357,7 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-el('updateReloadBtn').addEventListener('click', reloadForUpdate);
+on('updateReloadBtn', 'click', reloadForUpdate);
 
 el('versionTagLogin').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
 
