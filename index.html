@@ -69,6 +69,7 @@
     <div class="login-actions">
       <button class="btn btn-primary" id="pinSubmitBtn" style="flex:1;">Sign in</button>
     </div>
+    <button class="guide-link" id="loginGuideBtn" type="button">How to use this app</button>
     <div class="version-tag" id="versionTagLogin"></div>
   </div>
 </div>
@@ -97,6 +98,12 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="9"></circle>
           <polyline points="12 7 12 12 16 14"></polyline>
+        </svg>
+      </button>
+      <button class="icon-btn" id="guideBtn" aria-label="User Guide">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
         </svg>
       </button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
@@ -341,6 +348,115 @@
 <div class="toast" id="toast"></div>
 
 </div><!-- /appRoot -->
+
+<!-- User Guide: static help content, reachable before and after login,
+     hence it lives outside both #loginScreen and #appRoot. -->
+<div class="sheet-backdrop" id="guideBackdrop">
+  <div class="sheet">
+    <h2>User Guide</h2>
+
+    <div class="settings-section">
+      <h3>Overview</h3>
+      <p>Maintenance Tracker is this hotel's shared job list — every problem
+      raised, who logged it, and what's being done about it, all in one
+      place, updated live on every phone. No more chasing "did anyone fix
+      the light in 304 yet?" through the group chat.</p>
+      <p>Install it properly so it behaves like a real app: on Android
+      (Chrome), menu → <strong>Add to Home screen</strong>; on iPhone
+      (Safari), Share icon → <strong>Add to Home Screen</strong>. It then
+      opens full-screen and keeps working even with no signal.</p>
+      <p>Your name and role always show at the top, just under the header —
+      check it's you before logging anything.</p>
+    </div>
+
+    <div class="settings-section">
+      <h3>Everyone (once signed in)</h3>
+      <ul>
+        <li>The main list groups every job by area/floor, then room.</li>
+        <li>Tap a job to see the full detail — who logged it, when, and
+        the complete note history.</li>
+        <li>Use the search box to jump to a room number, or the status
+        chips (Open / In Progress / Awaiting Parts / Done) to filter.</li>
+        <li>🔔 shows what's changed since you last checked.</li>
+        <li>The clock icon opens <strong>Walk History</strong> — every
+        Fire &amp; Security Walk that's been done, grouped by day. Everyone
+        can view this, including Management.</li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <h3>Housekeeping, Night Team &amp; Duty Managers</h3>
+      <p>Spotted something broken? Log it here instead of the group chat
+      — it goes straight into the job list.</p>
+      <ul>
+        <li>Tap the <strong>+</strong> button (bottom right) →
+        <strong>Report a problem</strong>.</li>
+        <li>Pick the room, use Quick Pick if your issue's a common one
+        (or describe it yourself), then submit.</li>
+        <li>It's automatically tagged with your department and lands in
+        the list as <strong>Open</strong> — Maintenance picks it up from
+        there. You'll get a 🔔 if its status changes.</li>
+        <li>You can't edit or delete a report once submitted — if you
+        made a mistake, mention it to Maintenance directly.</li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <h3>Fire &amp; Security Walk</h3>
+      <p>This is where you actually write down what a walk found — the
+      CoGard tag scan alone doesn't let you log notes.</p>
+      <ul>
+        <li>Tap the clipboard-checklist icon in the header. Available to
+        Maintenance and Housekeeping-role accounts, which covers night
+        staff and duty managers too.</li>
+        <li>You're walked floor by floor, highest to lowest, then any
+        other areas (Bar, Kitchen, etc.) after.</li>
+        <li>On each floor: tap any faults found — leave them all
+        untapped if it's all in order — add a note if useful, then
+        <strong>Next floor</strong>.</li>
+        <li>Nothing saves until you tap <strong>Finish walk</strong> on
+        the last floor. <strong>Cancel walk</strong> at any point throws
+        the whole thing away — nothing half-logged.</li>
+        <li>Every walk is recorded, even a fully clean one, so there's
+        proof it happened — timestamped floor by floor.</li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <h3>Maintenance</h3>
+      <ul>
+        <li>Full control over every job: tap <strong>+</strong> to log a
+        new one, tap any job to edit it, tap the status pill to cycle it
+        Open → In Progress → Awaiting Parts → Done.</li>
+        <li>New jobs always start Open — there's no skipping ahead.</li>
+        <li>Notes are permanent once added — a running, timestamped
+        thread that's never overwritten.</li>
+        <li>⚙ <strong>Settings</strong> manages: site name, Areas
+        (floors/zones), Common Issues (quick-pick shortcuts),
+        Departments (who a job can be "Reported by"), Walk Faults (the
+        walk checklist), and Rooms.</li>
+        <li>Only Maintenance can delete a job. Roles and PINs are set up
+        separately via the Firebase console, not in the app.</li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <h3>Management</h3>
+      <p>Read-only — a live dashboard of what's outstanding, nothing to
+      fill in.</p>
+      <ul>
+        <li>See the same job list and counts everyone else does,
+        filtered and searched the same way.</li>
+        <li>No editing, no New Job button — pass anything that needs
+        raising to Housekeeping or Maintenance.</li>
+      </ul>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="guideCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>

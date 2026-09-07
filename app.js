@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.12';
+const APP_VERSION = '0.1.13';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -943,6 +943,16 @@ function renderWalkEntry(w){
     `;
 }
 
+// ---------------- User Guide (static content, works pre- and post-login) ----------------
+
+function openGuide(){
+  el('guideBackdrop').classList.add('open');
+}
+
+function closeGuide(){
+  el('guideBackdrop').classList.remove('open');
+}
+
 // ---------------- settings sheet (maintenance only) ----------------
 
 function openSettings(){
@@ -1131,6 +1141,11 @@ el('walkBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkBackdr
 el('walkHistoryBtn').addEventListener('click', openWalkHistory);
 el('walkHistoryCloseBtn').addEventListener('click', closeWalkHistory);
 el('walkHistoryBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='walkHistoryBackdrop') closeWalkHistory(); });
+
+el('guideBtn').addEventListener('click', openGuide);
+el('loginGuideBtn').addEventListener('click', openGuide);
+el('guideCloseBtn').addEventListener('click', closeGuide);
+el('guideBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='guideBackdrop') closeGuide(); });
 
 el('searchInput').addEventListener('input', render);
 el('showAllBtn').addEventListener('click', ()=>{

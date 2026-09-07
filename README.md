@@ -186,6 +186,13 @@ working with no signal once it's loaded once.
   PIN — not a shared one.
 - On first open, enter your username and PIN. Everyone stays signed in
   after that on that device until they tap the ⏻ logout button.
+- There's a built-in **User Guide** covering all of this from inside the
+  app itself — "How to use this app" on the login screen (readable
+  before signing in), or the book icon in the header once signed in.
+  It's organized by role (Everyone, Housekeeping/Night Team/Duty
+  Managers, Fire & Security Walk, Maintenance, Management), so send
+  people there first rather than this README, which is really the setup
+  doc for whoever's running the Firebase project.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.

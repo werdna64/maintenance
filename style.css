@@ -159,6 +159,11 @@ header h1{
 }
 .login-error{color:var(--open); font-size:12.5px; text-align:center; min-height:16px; margin-bottom:6px;}
 .login-actions{display:flex; gap:10px;}
+.guide-link{
+  display:block; width:100%; margin-top:12px; background:transparent; border:none;
+  color:var(--ink-soft); font-size:12.5px; text-decoration:underline; text-underline-offset:2px;
+  cursor:pointer; text-align:center; padding:4px; font-family:'IBM Plex Sans',sans-serif;
+}
 .version-tag{
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft);
   text-align:center; margin-top:14px;
@@ -254,6 +259,10 @@ header h1{
   display:none; align-items:flex-end; justify-content:center;
 }
 .sheet-backdrop.open{display:flex;}
+/* Reachable from the login screen too (z-index:100), so it needs to sit
+   above it — the ID selector's specificity wins over .sheet-backdrop's
+   z-index:40 regardless of source order. */
+#guideBackdrop{z-index:150;}
 .sheet{
   width:100%; max-width:480px; background:var(--paper);
   border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom));
@@ -291,6 +300,9 @@ header h1{
 .settings-section h3{font-size:13px; text-transform:uppercase; letter-spacing:.06em;
   font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); margin:0 0 10px;}
 .settings-hint{font-size:12.5px; color:var(--ink-soft); line-height:1.45; margin:-4px 0 10px;}
+.settings-section p{font-size:13.5px; line-height:1.5; color:var(--ink); margin:0 0 8px;}
+.settings-section ul{margin:0 0 8px; padding-left:20px;}
+.settings-section li{font-size:13.5px; line-height:1.5; color:var(--ink); margin-bottom:4px;}
 .tag-list{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px;}
 .tag{
   background:#fff; border:1.5px solid var(--line); border-radius:999px;
