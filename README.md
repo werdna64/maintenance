@@ -120,8 +120,10 @@ start Open," which meant someone using the Firestore SDK directly
 (bypassing the app entirely) could previously have forged those fields.
 This closes that gap. A job's `createdByUid`/`createdByName`/`dateLogged`
 also become permanently unchangeable after creation, for the same
-reason. Everyday use of the app is unaffected — this only blocks
-requests that don't match how the app actually behaves.
+reason. The notes thread is enforced append-only too — once a job has
+notes as a list, an update may only add a new entry to the end, never
+edit or remove an earlier one. Everyday use of the app is unaffected —
+this only blocks requests that don't match how the app actually behaves.
 
 ### 6. Get your web app config
 

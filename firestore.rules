@@ -48,6 +48,20 @@ service cloud.firestore {
           && d.status == 'Open';
     }
 
+    // Notes are meant to be an append-only log — once a job has a notes
+    // array, an update may only add to the end of it, never edit,
+    // reorder, or remove an earlier entry. Jobs saved before notes had
+    // individual entries still have a single legacy string (or no notes
+    // field at all); there's nothing to protect until the first note
+    // migrates that job to the array shape, so this only starts
+    // enforcing from that point on.
+    function notesAppendOnly() {
+      return !('notes' in resource.data) || !(resource.data.notes is list)
+          || (request.resource.data.notes is list
+              && request.resource.data.notes.size() >= resource.data.notes.size()
+              && request.resource.data.notes[0:resource.data.notes.size()] == resource.data.notes);
+    }
+
     // Editing a job may change its own fields (status, issue, notes,
     // etc.) but can never rewrite who originally logged it or when —
     // that's the permanent part of the audit trail. Whoever is saving
@@ -59,7 +73,8 @@ service cloud.firestore {
           && after.createdByName == before.createdByName
           && after.dateLogged == before.dateLogged
           && after.updatedByUid == request.auth.uid
-          && after.updatedByName == displayName();
+          && after.updatedByName == displayName()
+          && notesAppendOnly();
     }
 
     // Each person's account has a /users/{uid} doc naming their role and
