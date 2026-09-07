@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.18';
+const APP_VERSION = '0.1.19';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -15,6 +15,7 @@ let rooms = [];      // { id, number, area }
 let walks = [];       // completed Fire & Security Walk sessions
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
+let collapsedAreas = new Set(); // area names the user has manually collapsed
 let editingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
@@ -436,9 +437,14 @@ function render(){
   });
 
   areaKeys.forEach(area=>{
-    const g = document.createElement('div');
+    const areaJobCount = Object.values(byArea[area]).reduce((n, arr) => n + arr.length, 0);
+    const g = document.createElement('details');
     g.className = 'group';
-    g.innerHTML = `<div class="group-label"><span class="area-label">${escapeHtml(area)}</span><div class="rule"></div></div>`;
+    if(!collapsedAreas.has(area)) g.open = true;
+    g.addEventListener('toggle', ()=>{
+      if(g.open) collapsedAreas.delete(area); else collapsedAreas.add(area);
+    });
+    g.innerHTML = `<summary class="group-label"><span class="area-label">${escapeHtml(area)}</span><span class="group-count">${areaJobCount}</span><div class="rule"></div></summary>`;
 
     const roomKeys = Object.keys(byArea[area]).sort((a,b)=> a.localeCompare(b, undefined, {numeric:true}));
     roomKeys.forEach(room=>{

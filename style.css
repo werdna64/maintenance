@@ -192,11 +192,22 @@ header h1{
 .group-label{
   font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em;
   text-transform:uppercase; color:var(--ink-soft); margin:0 2px 8px;
-  display:flex; align-items:center; gap:8px;
+  display:flex; align-items:center; gap:8px; cursor:pointer; list-style:none;
 }
+.group-label::-webkit-details-marker{display:none;}
+.group-label::before{
+  content:'▸'; display:inline-block; color:var(--plaque-brass); font-size:10px; transition:transform .15s;
+}
+.group[open] > .group-label::before{transform:rotate(90deg);}
 .group-label .rule{flex:1; height:1px; background:var(--line);}
 .area-label{color:var(--plaque-brass); background:var(--plaque); padding:3px 8px;
   border-radius:6px; font-size:10.5px;}
+.group-count{
+  display:none; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700;
+  color:#fff; background:var(--ink-soft); border-radius:999px; padding:2px 8px; min-width:18px;
+  text-align:center;
+}
+.group:not([open]) .group-count{display:inline-block;}
 
 .card{
   background:#fff; border-radius:14px; border:1px solid var(--line);

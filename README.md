@@ -206,6 +206,12 @@ working with no signal once it's loaded once.
   everything including Done, or **Done** to see just the completed
   ones; the "Show all" button next to search resets both the filter and
   the search box back to everything in one tap.
+- Each area's heading is tap-to-collapse, with a count badge showing
+  how many jobs are inside while it's collapsed (the badge disappears
+  once expanded, since the cards themselves are the count then). Which
+  areas are collapsed is remembered while the app is open, but resets
+  on reload — it's a "get this out of my way for now" toggle, not a
+  saved preference.
 - Every new job starts as **Open**, no matter who creates it — the New
   Job dialog doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on
