@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.14';
+const APP_VERSION = '0.1.15';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -127,7 +127,14 @@ async function reloadForUpdate(){
     // Best effort — reload regardless, the new service worker/cache will
     // still take over on the next load even if cleanup partly failed.
   }
-  location.reload();
+  // Clearing the service worker's own Cache Storage (above) doesn't touch
+  // the browser's separate HTTP cache — a plain location.reload() can
+  // still be answered from there with the exact same stale app.js,
+  // leaving the update banner stuck reappearing every time it's tapped.
+  // A cache-busting query string forces a genuinely fresh request.
+  const url = new URL(location.href);
+  url.searchParams.set('_', Date.now());
+  location.href = url.toString();
 }
 
 // ---------------- login ----------------

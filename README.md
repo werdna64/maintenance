@@ -316,17 +316,31 @@ the app header, e.g. `v0.1.3 · Pre-release`):
 ### Bumping the version
 
 Whenever you (or anyone) pushes a change to `app.js`, `index.html`,
-`style.css`, or `db.js`, bump the version number in **three places** so
-the check actually fires and the new files actually load on reload:
+`style.css`, or `db.js`, bump the version number in **all of these
+places** so the check actually fires and the new files actually load on
+reload:
 - `version.json` → `"version"`
 - `app.js` → `APP_VERSION` constant near the top
 - `sw.js` → `CACHE_NAME`
+- `sw.js` → the `?v=` query string on the `style.css`/`app.js`/`db.js`
+  entries in the `ASSETS` array
+- `index.html` → the same `?v=` query string on the `<link
+  rel="stylesheet">` and the `db.js`/`app.js` `<script>` tags
 
-All three just need to change to *something* different from before —
-they don't need to match each other's format, they're three independent
-triggers for "something changed." In practice, keep them as the same
-semver string (e.g. all three become `0.1.4`) so it's obvious at a
-glance they're in sync.
+They don't need to match each other's format — they're independent
+triggers for "something changed" — but keep them as the same semver
+string (e.g. everywhere becomes `0.1.16`) so it's obvious at a glance
+they're in sync, and so a quick search for the old version number finds
+every spot that still needs updating.
+
+**Why the `?v=` query strings matter**: GitHub Pages doesn't give you
+control over HTTP cache headers, so a plain reload can have the browser
+(or an in-between CDN) serve the exact same cached copy of `app.js` even
+after the service worker's own cache is cleared — the update banner
+just keeps reappearing every time it's tapped, "stuck" reloading into
+the same old version. Tagging `style.css`/`app.js`/`db.js` with a
+version query string forces every browser layer to treat a new release
+as a genuinely different URL, so there's nothing stale left to serve.
 
 The **stage** label (`APP_STAGE` in `app.js`, `"stage"` in
 `version.json`) doesn't need to change on every release — only bump it
