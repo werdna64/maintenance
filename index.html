@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.21">
+<link rel="stylesheet" href="style.css?v=0.1.22">
 </head>
 <body>
 
@@ -137,15 +137,15 @@
     <h2 id="sheetTitle">New job</h2>
     <div class="row2">
       <div class="field">
-        <label>Room</label>
-        <select id="f_room">
-          <option value="">Select room…</option>
-        </select>
-      </div>
-      <div class="field">
         <label>Area</label>
         <select id="f_area">
           <option value="">Select area…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Room</label>
+        <select id="f_room">
+          <option value="">Select an area first…</option>
         </select>
       </div>
     </div>
@@ -215,11 +215,19 @@
 <div class="sheet-backdrop" id="reportBackdrop">
   <div class="sheet">
     <h2>Report a problem</h2>
-    <div class="field">
-      <label>Room</label>
-      <select id="r_room">
-        <option value="">Select room…</option>
-      </select>
+    <div class="row2">
+      <div class="field">
+        <label>Area</label>
+        <select id="r_area">
+          <option value="">Select area…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Room</label>
+        <select id="r_room">
+          <option value="">Select an area first…</option>
+        </select>
+      </div>
     </div>
     <div class="field">
       <label>Quick pick</label>
@@ -427,8 +435,9 @@
       <ul>
         <li>Tap the <strong>+</strong> button (bottom right) →
         <strong>Report a problem</strong>.</li>
-        <li>Pick the room, use Quick Pick if your issue's a common one
-        (or describe it yourself), then submit.</li>
+        <li>Pick the area/floor first, then the room (this narrows the
+        room list down to just that area), use Quick Pick if your
+        issue's a common one (or describe it yourself), then submit.</li>
         <li>It's automatically tagged with your department and lands in
         the list as <strong>Open</strong> — Maintenance picks it up from
         there. You'll get a 🔔 if its status changes.</li>
@@ -469,6 +478,9 @@
         <li>Full control over every job: tap <strong>+</strong> to log a
         new one, tap any job to edit it, tap the status pill to cycle it
         Open → In Progress → Awaiting Parts → Done.</li>
+        <li>Pick Area before Room when logging or editing a job — Room
+        only lists that area's rooms, rather than every room in the
+        hotel in one long list.</li>
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
@@ -511,7 +523,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.21"></script>
-<script src="app.js?v=0.1.21"></script>
+<script src="db.js?v=0.1.22"></script>
+<script src="app.js?v=0.1.22"></script>
 </body>
 </html>

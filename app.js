@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.21';
+const APP_VERSION = '0.1.22';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -271,10 +271,13 @@ function renderAreaSelects(){
   const options = `<option value="">Select area…</option>` +
     (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   const currentJobArea = el('f_area').value;
+  const currentReportArea = el('r_area').value;
   const currentSettingsArea = el('s_newRoomArea').value;
   el('f_area').innerHTML = options;
+  el('r_area').innerHTML = options;
   el('s_newRoomArea').innerHTML = options;
   if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
+  if((config.areas||[]).includes(currentReportArea)) el('r_area').value = currentReportArea;
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
 }
 
@@ -292,18 +295,24 @@ function renderSourceSelect(){
   if((config.departments||[]).includes(current)) el('f_source').value = current;
 }
 
+// The room list is scoped to whichever area is currently picked in that
+// sheet — with a couple hundred rooms across a real hotel, one flat
+// "every room" dropdown is unusable, so Area is chosen first and Room
+// is filtered down to just that area's handful of options.
+function populateRoomSelect(selectId, areaId){
+  const area = el(areaId).value;
+  const filtered = rooms.filter(r => r.area === area)
+    .sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
+  const current = el(selectId).value;
+  el(selectId).innerHTML = area
+    ? `<option value="">Select room…</option>` + filtered.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('')
+    : `<option value="">Select an area first…</option>`;
+  if(filtered.some(r=>r.number === current)) el(selectId).value = current;
+}
+
 function renderRoomSelect(){
-  const sorted = [...rooms].sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
-  const options = `<option value="">Select room…</option>` +
-    sorted.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)} — ${escapeHtml(r.area)}</option>`).join('');
-
-  const currentReportRoom = el('r_room').value;
-  el('r_room').innerHTML = options;
-  if(sorted.some(r=>r.number === currentReportRoom)) el('r_room').value = currentReportRoom;
-
-  const currentJobRoom = el('f_room').value;
-  el('f_room').innerHTML = options;
-  if(sorted.some(r=>r.number === currentJobRoom)) el('f_room').value = currentJobRoom;
+  populateRoomSelect('r_room', 'r_area');
+  populateRoomSelect('f_room', 'f_area');
 }
 
 // ---------------- notifications ----------------
@@ -545,8 +554,9 @@ function openJobSheet(job){
   sheetReadOnly = !canEdit;
   editingId = job ? job.id : null;
   el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — Room ${job.room}` : 'New job';
-  el('f_room').value = job ? job.room : '';
   el('f_area').value = job ? roomArea(job.room) : '';
+  populateRoomSelect('f_room', 'f_area');
+  if(job) el('f_room').value = job.room;
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
@@ -570,10 +580,9 @@ function openJobSheet(job){
   el('f_newNote').value = '';
   el('addNoteRow').style.display = (job && canEdit) ? 'flex' : 'none';
 
-  ['f_room','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
+  ['f_area','f_room','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
-  el('f_area').disabled = true; // always derived from the selected room — manage areas in Settings
   el('deleteBtn').style.display = (job && canEdit) ? 'block' : 'none';
   el('saveBtn').style.display = canEdit ? 'block' : 'none';
   el('cancelBtn').textContent = canEdit ? 'Cancel' : 'Close';
@@ -718,7 +727,8 @@ async function handleConfirmDelete(){
 // ---------------- report sheet (housekeeping: raise a problem) ----------------
 
 function openReportSheet(){
-  el('r_room').value = '';
+  el('r_area').value = '';
+  populateRoomSelect('r_room', 'r_area');
   el('r_issuePreset').value = '';
   el('r_issue').value = '';
   el('reportBackdrop').classList.add('open');
@@ -1266,10 +1276,7 @@ on('usernameInput', 'keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus()
 on('pinInput', 'keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
 on('logoutBtn', 'click', handleLogout);
 
-on('f_room', 'change', ()=>{
-  const area = roomArea(el('f_room').value);
-  if((config.areas||[]).includes(area)) el('f_area').value = area;
-});
+on('f_area', 'change', ()=>{ populateRoomSelect('f_room', 'f_area'); });
 on('f_issuePreset', 'change', ()=>{
   if(el('f_issuePreset').value) el('f_issue').value = el('f_issuePreset').value;
 });
@@ -1283,6 +1290,7 @@ on('deleteConfirmBtn', 'click', handleConfirmDelete);
 on('deleteConfirmBackdrop', 'click', (e)=>{ if(e.target.id==='deleteConfirmBackdrop') closeDeleteConfirm(); });
 on('sheetBackdrop', 'click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
+on('r_area', 'change', ()=>{ populateRoomSelect('r_room', 'r_area'); });
 on('r_issuePreset', 'change', ()=>{
   if(el('r_issuePreset').value) el('r_issue').value = el('r_issuePreset').value;
 });
