@@ -96,6 +96,14 @@ const DB = {
     await firestore.collection('jobs').doc(id).delete();
   },
 
+  // Write-only audit trail for deletions — a permanent record of why a
+  // job was removed and what it looked like, since the job document
+  // itself won't exist to ask afterwards. No realtime listener; nothing
+  // in the app currently reads this back.
+  async putDeletedJobRecord(record) {
+    await firestore.collection('deletedJobs').doc(record.id).set(record);
+  },
+
   // ---- rooms (realtime) ----
   onRoomsChange(callback) {
     return firestore.collection('rooms').onSnapshot((snap) => {

@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.16';
+const APP_VERSION = '0.1.17';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -502,8 +502,19 @@ function stampAudit(job, isNew){
 async function cycleStatus(j){
   if(currentRole !== 'maintenance') return;
   const idx = STATUSES.indexOf(j.status);
-  j.status = STATUSES[(idx+1) % STATUSES.length];
-  j.dateClosed = (j.status === 'Done') ? new Date().toISOString() : '';
+  const nextStatus = STATUSES[(idx+1) % STATUSES.length];
+  if(nextStatus === 'Done'){
+    // Marking a job Done needs a record of what was actually done to
+    // fix it — open the sheet instead of applying the status instantly,
+    // so there's somewhere to add that note before it's saved.
+    openJobSheet(j);
+    el('f_status').value = 'Done';
+    el('f_newNote').focus();
+    toast('Add a note on what was done, then Save');
+    return;
+  }
+  j.status = nextStatus;
+  j.dateClosed = '';
   stampAudit(j, false);
   await DB.putJob(j);
   toast(`${j.room} → ${j.status}`);
@@ -624,6 +635,16 @@ async function handleSaveJob(){
   // status field is only shown (and only readable from f_status) when
   // editing an existing job.
   const status = isNew ? 'Open' : el('f_status').value;
+
+  // Marking a job Done needs a record of what was actually done to fix
+  // it — block the save until the note thread has at least one entry
+  // (add one via the Notes section above, then Save again).
+  if(status === 'Done' && normalizeNotes(job).length === 0){
+    toast('Add a note on what was done before marking Done');
+    el('f_newNote').focus();
+    return;
+  }
+
   job.room = room;
   job.issue = el('f_issue').value.trim();
   job.status = status;
@@ -636,9 +657,42 @@ async function handleSaveJob(){
   toast('Saved');
 }
 
-async function handleDeleteJob(){
+// Deleting a job removes it entirely — unlike marking Done, there's no
+// note thread left behind to explain why. A reason is required and
+// kept as a permanent record (with a full snapshot of the job) in a
+// separate deletedJobs collection, so the "why" survives even though
+// the job itself doesn't.
+function openDeleteConfirm(){
   if(currentRole !== 'maintenance' || !editingId) return;
+  const job = jobs.find(j=>j.id===editingId);
+  if(!job) return;
+  el('deleteConfirmSummary').textContent = `Room ${job.room} — ${job.issue || '(no description)'}`;
+  el('deleteReason').value = '';
+  el('deleteConfirmBackdrop').classList.add('open');
+}
+
+function closeDeleteConfirm(){
+  el('deleteConfirmBackdrop').classList.remove('open');
+}
+
+async function handleConfirmDelete(){
+  if(currentRole !== 'maintenance' || !editingId) return;
+  const reason = el('deleteReason').value.trim();
+  if(!reason){ toast('A reason is required'); return; }
+  const job = jobs.find(j=>j.id===editingId);
+  if(!job) return;
+
+  await DB.putDeletedJobRecord({
+    id: uid('d'),
+    job,
+    reason,
+    deletedByUid: currentUser.uid,
+    deletedByName: currentUser.name,
+    deletedAt: new Date().toISOString()
+  });
   await DB.deleteJob(editingId);
+
+  closeDeleteConfirm();
   closeJobSheet();
   toast('Deleted');
 }
@@ -1174,7 +1228,10 @@ el('cancelBtn').addEventListener('click', closeJobSheet);
 el('saveBtn').addEventListener('click', handleSaveJob);
 el('addNoteBtn').addEventListener('click', handleAddNote);
 el('f_newNote').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleAddNote(); } });
-el('deleteBtn').addEventListener('click', handleDeleteJob);
+el('deleteBtn').addEventListener('click', openDeleteConfirm);
+el('deleteConfirmCancelBtn').addEventListener('click', closeDeleteConfirm);
+el('deleteConfirmBtn').addEventListener('click', handleConfirmDelete);
+el('deleteConfirmBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='deleteConfirmBackdrop') closeDeleteConfirm(); });
 el('sheetBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
 el('r_issuePreset').addEventListener('change', ()=>{

@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.16">
+<link rel="stylesheet" href="style.css?v=0.1.17">
 </head>
 <body>
 
@@ -189,6 +189,24 @@
       <button class="btn btn-ghost" id="cancelBtn">Close</button>
       <button class="btn btn-danger" id="deleteBtn" style="display:none;">Delete</button>
       <button class="btn btn-primary" id="saveBtn">Save job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation: a reason is required and kept as a permanent
+     record even though the job itself is removed. Stacks on top of the
+     job sheet (same z-index, but later in the DOM). -->
+<div class="sheet-backdrop" id="deleteConfirmBackdrop">
+  <div class="sheet">
+    <h2>Delete job?</h2>
+    <p class="settings-hint" id="deleteConfirmSummary"></p>
+    <div class="field">
+      <label>Reason for deleting</label>
+      <textarea id="deleteReason" rows="3" placeholder="e.g. Duplicate of another job, logged in error…"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="deleteConfirmCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="deleteConfirmBtn">Delete</button>
     </div>
   </div>
 </div>
@@ -436,12 +454,20 @@
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
+        <li><strong>Marking Done needs a note</strong> saying what was
+        actually done — tapping the pill straight to Done opens the job
+        so you can add one (or it opens with one already there),
+        then Save. Everything else still cycles in one tap.</li>
+        <li><strong>Deleting a job needs a reason</strong> — typed into
+        a small confirmation before it's removed. The job disappears
+        from the list, but the reason is kept permanently, just not
+        visible anywhere in the app yet.</li>
         <li>⚙ <strong>Settings</strong> manages: site name, Areas
         (floors/zones), Common Issues (quick-pick shortcuts),
         Departments (who a job can be "Reported by"), Walk Faults (the
         walk checklist), and Rooms.</li>
-        <li>Only Maintenance can delete a job. Roles and PINs are set up
-        separately via the Firebase console, not in the app.</li>
+        <li>Roles and PINs are set up separately via the Firebase
+        console, not in the app.</li>
       </ul>
     </div>
 
@@ -467,7 +493,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.16"></script>
-<script src="app.js?v=0.1.16"></script>
+<script src="db.js?v=0.1.17"></script>
+<script src="app.js?v=0.1.17"></script>
 </body>
 </html>

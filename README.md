@@ -137,8 +137,12 @@ reason. The notes thread is enforced append-only too — once a job has
 notes as a list, an update may only add a new entry to the end, never
 edit or remove an earlier one. Walk History entries get the same honest-
 attribution check on `conductedByUid`/`conductedByName` when a walk is
-logged. Everyday use of the app is unaffected — this only blocks
-requests that don't match how the app actually behaves.
+logged, and deletion records get the same check on
+`deletedByUid`/`deletedByName` — and once written, a deletion record can
+never be edited or removed, permanently preserving why a job was
+deleted even though the job itself is gone. Everyday use of the app is
+unaffected — this only blocks requests that don't match how the app
+actually behaves.
 
 ### 6. Get your web app config
 
@@ -200,6 +204,19 @@ working with no signal once it's loaded once.
   Job dialog doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on
   each card, or editing the job).
+- **Marking a job Done requires a note first** — explaining what was
+  actually done to fix it. Tapping the status pill straight to Done
+  opens the job instead of applying it instantly, landing you in the
+  Notes box; add a note (or leave one already on the thread) and Save
+  to complete it. This is the one status change with a gate — cycling
+  between Open/In Progress/Awaiting Parts stays a single tap.
+- **Deleting a job requires a reason.** Tapping Delete opens a small
+  confirmation asking why — the job disappears from the list, but the
+  reason (plus a full snapshot of the job) is kept permanently in
+  Firestore's `deletedJobs` collection, so there's still a record of
+  what was deleted and why even though the job itself is gone. Nothing
+  in the app currently displays this collection — check it directly in
+  the Firestore console if you ever need to.
 - ⚙ Settings → **Common Issues** is an optional list of recurring
   problems (e.g. "Bath plug missing", "Sink blocked", "TV remote
   missing") that shows up as a "Quick pick" dropdown when logging or

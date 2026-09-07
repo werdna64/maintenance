@@ -85,6 +85,14 @@ service cloud.firestore {
           && d.conductedByName == displayName();
     }
 
+    // A deletion record must be honestly attributed to whoever actually
+    // deleted the job, same reasoning as isHonestJobCreate() above.
+    function isHonestDeleteLog() {
+      let d = request.resource.data;
+      return d.deletedByUid == request.auth.uid
+          && d.deletedByName == displayName();
+    }
+
     // Each person's account has a /users/{uid} doc naming their role and
     // display name. Only that account can read its own doc; nobody can
     // write one from the client — accounts are set up by hand in the
@@ -132,6 +140,17 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if (isMaintenance() || isHousekeeping()) && isHonestWalkCreate();
       allow update, delete: if isMaintenance();
+    }
+
+    // Permanent record of why a job was deleted, since the job itself
+    // won't exist afterwards to ask. Only maintenance can delete a job
+    // (see /jobs above), so only maintenance ever writes here — and
+    // once written, a record can never be edited or removed, same as
+    // the rest of this app's audit trail.
+    match /deletedJobs/{recordId} {
+      allow read: if isMaintenance();
+      allow create: if isMaintenance() && isHonestDeleteLog();
+      allow update, delete: if false;
     }
 
     // Each person tracks their own "last checked notifications at" time,
