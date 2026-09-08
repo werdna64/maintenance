@@ -51,12 +51,14 @@ service cloud.firestore {
     // Notes are meant to be an append-only log — once a job has a notes
     // array, an update may only add to the end of it, never edit,
     // reorder, or remove an earlier entry. Jobs saved before notes had
-    // individual entries still have a single legacy string (or no notes
-    // field at all); there's nothing to protect until the first note
-    // migrates that job to the array shape, so this only starts
+    // individual entries still have a single legacy string, no notes
+    // field at all, or an empty array (e.g. a PPM-generated job, which
+    // starts with no notes yet to protect); there's nothing to protect
+    // until the first note actually lands, so this only starts
     // enforcing from that point on.
     function notesAppendOnly() {
       return !('notes' in resource.data) || !(resource.data.notes is list)
+          || resource.data.notes.size() == 0
           || (request.resource.data.notes is list
               && request.resource.data.notes.size() >= resource.data.notes.size()
               && request.resource.data.notes[0:resource.data.notes.size()] == resource.data.notes);

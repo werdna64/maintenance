@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.28';
+const APP_VERSION = '0.1.29';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1303,7 +1303,6 @@ async function checkPpmDue(){
       room: task.room,
       issue: task.name,
       status: 'Open',
-      notes: [],
       source: 'PPM',
       ppmTaskId: task.id,
       dateLogged: new Date().toISOString(),
