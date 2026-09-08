@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.29';
+const APP_VERSION = '0.1.30';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -208,8 +208,8 @@ function applyRolePermissions(role){
 // ---------------- home screen ----------------
 // The landing screen after login — tiles into each section, tailored to
 // what the signed-in role can actually do. "Job List" is its own screen
-// now rather than the default landing; tapping the header title from
-// anywhere comes back here.
+// now rather than the default landing; the 🏠 header icon (or tapping
+// the header title) gets back here from anywhere.
 
 const HOME_ICONS = {
   newJob: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
@@ -1622,6 +1622,7 @@ on('usernameInput', 'keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus()
 on('pinInput', 'keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
 on('logoutBtn', 'click', handleLogout);
 on('siteTitle', 'click', ()=> showView('home'));
+on('homeBtn', 'click', ()=> showView('home'));
 
 on('f_area', 'change', ()=>{ populateRoomSelect('f_room', 'f_area'); });
 on('f_issuePreset', 'change', ()=>{

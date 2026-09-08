@@ -192,7 +192,8 @@ working with no signal once it's loaded once.
   after that on that device until they tap the ⏻ logout button.
 - Signing in opens a **Home screen** of icon tiles into whatever this app
   covers for that role, rather than dropping straight into the job list —
-  tap the header title any time to get back to it.
+  tap the 🏠 icon in the header (or the header title) any time to get
+  back to it.
 - There's a built-in **User Guide** covering all of this from inside the
   app itself — "How to use this app" on the login screen (readable
   before signing in), or the book icon in the header once signed in.

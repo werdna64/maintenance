@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.29">
+<link rel="stylesheet" href="style.css?v=0.1.30">
 </head>
 <body>
 
@@ -85,6 +85,12 @@
     <span class="role-badge" id="roleBadge"></span>
   </div>
   <div class="header-row header-actions-row">
+    <button class="icon-btn" id="homeBtn" aria-label="Home">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 11l9-8 9 8"></path>
+        <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"></path>
+      </svg>
+    </button>
     <button class="icon-btn" id="notifBtn" aria-label="Notifications">
       🔔<span class="notif-count" id="notifCount"></span>
     </button>
@@ -489,8 +495,9 @@
       <p>Your name and role always show at the top, just under the header —
       check it's you before logging anything.</p>
       <p>Signing in lands you on a <strong>Home screen</strong> of icon
-      tiles linking into whatever this app covers for your role — tap the
-      title in the header any time to get back to it.</p>
+      tiles linking into whatever this app covers for your role — tap
+      the 🏠 icon in the header (or the header title) any time to get
+      back to it.</p>
     </div>
 
     <div class="settings-section">
@@ -631,7 +638,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.29"></script>
-<script src="app.js?v=0.1.29"></script>
+<script src="db.js?v=0.1.30"></script>
+<script src="app.js?v=0.1.30"></script>
 </body>
 </html>
