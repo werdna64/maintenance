@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.30';
+const APP_VERSION = '0.1.31';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -55,6 +55,19 @@ function fmtDate(iso){
   if(!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+}
+
+// For populating a <input type="date"> from a stored ISO instant — needs
+// the LOCAL calendar date (matching what fmtDate() shows), not a raw
+// slice of the ISO string's UTC date, which is a day off from British
+// Summer Time onwards (a stored local midnight becomes 23:00 the
+// previous day in UTC).
+function toDateInputValue(iso){
+  const d = iso ? new Date(iso) : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 
 function fmtDateTime(iso){
@@ -1368,7 +1381,7 @@ function openPpmTaskSheet(task){
   el('p_recurrenceType').value = task ? task.recurrenceType : 'fixed';
   el('p_intervalValue').value = task ? task.intervalValue : 1;
   el('p_intervalUnit').value = task ? task.intervalUnit : 'weeks';
-  el('p_nextDueAt').value = task ? task.nextDueAt.slice(0,10) : new Date().toISOString().slice(0,10);
+  el('p_nextDueAt').value = task ? toDateInputValue(task.nextDueAt) : toDateInputValue();
   el('p_contractor').value = task ? (task.contractor || '') : '';
   el('ppmTaskDeleteBtn').style.display = task ? 'block' : 'none';
   if(task){
