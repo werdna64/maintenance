@@ -1,5 +1,13 @@
 rules_version = '2';
 
+// Maintenance Tracker — Firestore Security Rules
+// Rules version: 1 (2026-09-08)
+//
+// Bump the number and date above by one whenever this file changes, so
+// after pasting into Firebase console → Firestore → Rules, you can
+// check the line showing there against what you meant to paste before
+// hitting Publish.
+//
 // Deploy with: firebase deploy --only firestore:rules
 // (see README.md for full setup). Each person's role and display name
 // are set by writing a document to /users/{uid} from the Firebase

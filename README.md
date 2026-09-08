@@ -493,6 +493,12 @@ updated file into Firestore console → **Rules** → **Publish** (see
 forgetting it means the code expects a permission the server doesn't
 actually grant yet.
 
+`firestore.rules` carries its own **"Rules version: N (date)"** line
+right at the top, bumped by one every time the file changes — after
+pasting into the console, check that line against what you meant to
+paste before hitting Publish, so a stale copy-paste doesn't go live
+unnoticed.
+
 ## Backing up your data
 
 Firestore console → your project → **Firestore Database** shows every job,
