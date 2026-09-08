@@ -130,6 +130,15 @@ service cloud.firestore {
       allow write: if isMaintenance();
     }
 
+    // Planned preventative maintenance task definitions (recurring
+    // schedules) — Maintenance-managed, same as rooms/config. The jobs
+    // PPM generates when due are ordinary /jobs documents (see above),
+    // not stored here.
+    match /ppmTasks/{taskId} {
+      allow read: if signedIn();
+      allow write: if isMaintenance();
+    }
+
     // Walk sessions: a record that a Fire & Security Walk happened, one
     // per completed walk (including a fully "all in order" one — that's
     // the proof the walk was actually done). Same shape as jobs: anyone

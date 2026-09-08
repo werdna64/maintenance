@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.27';
+const APP_VERSION = '0.1.28';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -13,17 +13,19 @@ const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
 let jobs = [];
 let rooms = [];      // { id, number, area }
 let walks = [];       // completed Fire & Security Walk sessions
+let ppmTasks = [];    // planned preventative maintenance schedules
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
 let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
 let viewedJobIds = new Set(); // jobs opened this session — no longer "new" even if within the unseen window
 let editingId = null;
+let ppmEditingId = null;
 let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
 let sheetReadOnly = false;
 let lastSeenAt = null;
 
-let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null;
+let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
 
 const el = id => document.getElementById(id);
 
@@ -179,10 +181,12 @@ async function handleLogout(){
   if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
   if(unsubWalks) unsubWalks();
-  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = null;
+  if(unsubPpmTasks) unsubPpmTasks();
+  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = unsubPpmTasks = null;
   lastSeenAt = null;
   lastAlertedTime = null; // a different person may sign in next on this device
   viewedJobIds = new Set();
+  currentView = 'home';
   await DB.signOut();
 }
 
@@ -192,15 +196,86 @@ function applyRolePermissions(role){
   el('settingsBtn').style.display = (role === 'maintenance') ? '' : 'none';
   el('walkBtn').style.display = (role === 'maintenance' || role === 'housekeeping') ? '' : 'none';
 
+  // FAB's onclick is role-based and set once here; whether it's actually
+  // visible also depends on which screen is showing — see showView().
   if(role === 'maintenance'){
-    el('fabAdd').style.display = '';
     el('fabAdd').onclick = ()=>openJobSheet(null);
   } else if(role === 'housekeeping'){
-    el('fabAdd').style.display = '';
     el('fabAdd').onclick = ()=>openReportSheet();
-  } else {
-    el('fabAdd').style.display = 'none';
   }
+}
+
+// ---------------- home screen ----------------
+// The landing screen after login — tiles into each section, tailored to
+// what the signed-in role can actually do. "Job List" is its own screen
+// now rather than the default landing; tapping the header title from
+// anywhere comes back here.
+
+const HOME_ICONS = {
+  newJob: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+  list: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
+  walk: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><polyline points="9 14 11 16 15 12"></polyline></svg>`,
+  history: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 16 14"></polyline></svg>`,
+  ppm: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+  settings: `⚙`
+};
+
+function homeTilesForRole(role){
+  if(role === 'maintenance'){
+    return [
+      { icon: HOME_ICONS.newJob, label: 'New Job', action: 'newJob' },
+      { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
+      { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' },
+      { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
+      { icon: HOME_ICONS.ppm, label: 'PPM', action: 'ppm' },
+      { icon: HOME_ICONS.settings, label: 'Settings', action: 'settings' }
+    ];
+  }
+  if(role === 'housekeeping'){
+    return [
+      { icon: HOME_ICONS.newJob, label: 'Report a Problem', action: 'report' },
+      { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
+      { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' }
+    ];
+  }
+  // management
+  return [
+    { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
+    { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' }
+  ];
+}
+
+function handleHomeTile(action){
+  if(action === 'newJob'){ showView('jobs'); openJobSheet(null); }
+  else if(action === 'report'){ showView('jobs'); openReportSheet(); }
+  else if(action === 'jobs'){ showView('jobs'); }
+  else if(action === 'walk'){ openWalkWizard(); }
+  else if(action === 'walkHistory'){ openWalkHistory(); }
+  else if(action === 'ppm'){ openPpmList(); }
+  else if(action === 'settings'){ openSettings(); }
+}
+
+function renderHome(){
+  const wrap = el('homeTiles');
+  wrap.innerHTML = '';
+  homeTilesForRole(currentRole).forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'home-tile';
+    btn.innerHTML = `<span class="home-tile-icon">${t.icon}</span><span class="home-tile-label">${escapeHtml(t.label)}</span>`;
+    btn.addEventListener('click', ()=>handleHomeTile(t.action));
+    wrap.appendChild(btn);
+  });
+}
+
+let currentView = 'home';
+function showView(view){
+  currentView = view;
+  const showJobs = view === 'jobs';
+  el('homeScreen').style.display = showJobs ? 'none' : '';
+  el('controls').style.display = showJobs ? '' : 'none';
+  el('list').style.display = showJobs ? '' : 'none';
+  el('fabAdd').style.display = (showJobs && (currentRole === 'maintenance' || currentRole === 'housekeeping')) ? '' : 'none';
+  if(!showJobs) renderHome();
 }
 
 // ---------------- realtime data wiring ----------------
@@ -213,6 +288,7 @@ function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
+  unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
     config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
     if(!config.areas) config.areas = [];
@@ -275,12 +351,15 @@ function renderAreaSelects(){
     (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   const currentJobArea = el('f_area').value;
   const currentReportArea = el('r_area').value;
+  const currentPpmArea = el('p_area').value;
   const currentSettingsArea = el('s_newRoomArea').value;
   el('f_area').innerHTML = options;
   el('r_area').innerHTML = options;
+  el('p_area').innerHTML = options;
   el('s_newRoomArea').innerHTML = options;
   if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
   if((config.areas||[]).includes(currentReportArea)) el('r_area').value = currentReportArea;
+  if((config.areas||[]).includes(currentPpmArea)) el('p_area').value = currentPpmArea;
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
 }
 
@@ -316,6 +395,7 @@ function populateRoomSelect(selectId, areaId){
 function renderRoomSelect(){
   populateRoomSelect('r_room', 'r_area');
   populateRoomSelect('f_room', 'f_area');
+  populateRoomSelect('p_room', 'p_area');
 }
 
 // ---------------- notifications ----------------
@@ -719,6 +799,7 @@ async function handleSaveJob(){
 
   const isNew = !editingId;
   let job = editingId ? jobs.find(j=>j.id===editingId) : null;
+  const previousStatus = job ? job.status : null;
   if(!job){
     job = { id: uid('j'), dateLogged: new Date().toISOString() };
   }
@@ -744,6 +825,23 @@ async function handleSaveJob(){
   stampAudit(job, isNew);
 
   await DB.putJob(job);
+
+  // Completing a PPM-generated job is what advances its schedule — the
+  // task doc is only touched on the Open→Done transition, never on
+  // every save, so re-saving an already-Done job doesn't push the date
+  // out again.
+  if(job.ppmTaskId && status === 'Done' && previousStatus !== 'Done'){
+    const task = ppmTasks.find(t=>t.id === job.ppmTaskId);
+    if(task){
+      const basis = task.recurrenceType === 'fixed' ? task.nextDueAt : new Date().toISOString();
+      task.nextDueAt = advanceDueDate(basis, task);
+      task.lastCompletedAt = new Date().toISOString();
+      task.lastCompletedJobId = job.id;
+      task.activeJobId = null;
+      await DB.putPpmTask(task);
+    }
+  }
+
   closeJobSheet();
   toast('Saved');
 }
@@ -1151,6 +1249,191 @@ function closeGuide(){
   el('guideBackdrop').classList.remove('open');
 }
 
+// ---------------- PPM: planned preventative maintenance (maintenance only) ----------------
+// Recurring/compliance schedules (fire alarm tests, servicing, statutory
+// checks) rather than reactive faults. A task's own doc just holds the
+// schedule; when it falls due, checkPpmDue() creates an ordinary job for
+// it (source: 'PPM', linked via ppmTaskId) — completing that job through
+// the normal Done flow is what advances the schedule. See checkPpmDue()
+// and the PPM hook in handleSaveJob() below.
+
+function fmtRecurrence(task){
+  const unit = task.intervalValue === 1 ? task.intervalUnit.replace(/s$/,'') : task.intervalUnit;
+  const freq = `Every ${task.intervalValue} ${unit}`;
+  return task.recurrenceType === 'fixed' ? `${freq} (fixed)` : `${freq} (rolling)`;
+}
+
+function ppmDueStatus(task){
+  const daysUntil = (new Date(task.nextDueAt).getTime() - Date.now()) / 86400000;
+  if(daysUntil < 0) return 'overdue';
+  if(daysUntil <= 7) return 'soon';
+  return 'ok';
+}
+
+// Fixed: next due is always computed from the previous *scheduled* date,
+// so a late completion doesn't shift the whole future schedule. Rolling:
+// next due is computed from whenever the task actually gets completed.
+function advanceDueDate(fromIso, task){
+  const d = new Date(fromIso);
+  const n = task.intervalValue;
+  switch(task.intervalUnit){
+    case 'days': d.setDate(d.getDate() + n); break;
+    case 'weeks': d.setDate(d.getDate() + n*7); break;
+    case 'months': d.setMonth(d.getMonth() + n); break;
+    case 'years': d.setFullYear(d.getFullYear() + n); break;
+  }
+  return d.toISOString();
+}
+
+// There's no server/cron in this architecture, so a PPM task only comes
+// due when someone with the app open triggers this check (on data load
+// and every 15 minutes thereafter, same cadence as checkForUpdate()) —
+// if nobody opens the app on the day something falls due, it won't
+// appear as a job until someone next does. Each due task becomes one
+// ordinary job (source: 'PPM', linked via ppmTaskId); activeJobId stops
+// the same task spawning a second job while the first is still open.
+async function checkPpmDue(){
+  if(currentRole !== 'maintenance' || !currentUser) return;
+  const now = Date.now();
+  for(const task of ppmTasks){
+    if(task.activeJobId) continue;
+    if(new Date(task.nextDueAt).getTime() > now) continue;
+    const job = {
+      id: uid('j'),
+      room: task.room,
+      issue: task.name,
+      status: 'Open',
+      notes: [],
+      source: 'PPM',
+      ppmTaskId: task.id,
+      dateLogged: new Date().toISOString(),
+      dateClosed: ''
+    };
+    stampAudit(job, true);
+    await DB.putJob(job);
+    task.activeJobId = job.id;
+    await DB.putPpmTask(task);
+  }
+}
+
+function openPpmList(){
+  renderPpmList();
+  el('ppmBackdrop').classList.add('open');
+}
+
+function closePpmList(){
+  el('ppmBackdrop').classList.remove('open');
+}
+
+function renderPpmList(){
+  const wrap = el('ppmList');
+  if(!wrap) return; // called from subscribeData() before the DOM exists on very first paint is not possible, but stay defensive
+  if(ppmTasks.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No PPM tasks yet — tap Add task to create one</div>`;
+    return;
+  }
+  const sorted = [...ppmTasks].sort((a,b)=> new Date(a.nextDueAt) - new Date(b.nextDueAt));
+  const statusLabel = { overdue: 'Overdue', soon: 'Due soon', ok: 'Upcoming' };
+  wrap.innerHTML = sorted.map(t=>{
+    const status = ppmDueStatus(t);
+    const metaParts = [fmtRecurrence(t)];
+    if(t.room) metaParts.unshift(t.room);
+    if(t.contractor) metaParts.push(t.contractor);
+    return `
+      <div class="ppm-item" data-id="${t.id}">
+        <div class="ppm-item-top">
+          <div class="ppm-item-name">${escapeHtml(t.name)}</div>
+          <span class="ppm-status ppm-status-${status}">${statusLabel[status]}</span>
+        </div>
+        <div class="ppm-item-meta">${escapeHtml(metaParts.join(' · '))}</div>
+        <div class="ppm-item-due">Due ${fmtDate(t.nextDueAt)}</div>
+      </div>
+    `;
+  }).join('');
+  wrap.querySelectorAll('.ppm-item').forEach(node=>{
+    node.addEventListener('click', ()=>{
+      const task = ppmTasks.find(t=>t.id === node.dataset.id);
+      if(task) openPpmTaskSheet(task);
+    });
+  });
+}
+
+function openPpmTaskSheet(task){
+  if(currentRole !== 'maintenance') return;
+  ppmEditingId = task ? task.id : null;
+  el('ppmTaskSheetTitle').textContent = task ? 'Edit PPM Task' : 'New PPM Task';
+  el('p_name').value = task ? task.name : '';
+  el('p_area').value = (task && task.room) ? roomArea(task.room) : '';
+  populateRoomSelect('p_room', 'p_area');
+  if(task && task.room) el('p_room').value = task.room;
+  el('p_recurrenceType').value = task ? task.recurrenceType : 'fixed';
+  el('p_intervalValue').value = task ? task.intervalValue : 1;
+  el('p_intervalUnit').value = task ? task.intervalUnit : 'weeks';
+  el('p_nextDueAt').value = task ? task.nextDueAt.slice(0,10) : new Date().toISOString().slice(0,10);
+  el('p_contractor').value = task ? (task.contractor || '') : '';
+  el('ppmTaskDeleteBtn').style.display = task ? 'block' : 'none';
+  if(task){
+    const parts = [];
+    if(task.lastCompletedAt) parts.push(`Last done ${fmtDateTime(task.lastCompletedAt)}`);
+    if(task.createdByName) parts.push(`Added by ${task.createdByName}`);
+    el('ppmTaskAudit').textContent = parts.join(' · ');
+  } else {
+    el('ppmTaskAudit').textContent = '';
+  }
+  el('ppmTaskBackdrop').classList.add('open');
+}
+
+function closePpmTaskSheet(){
+  el('ppmTaskBackdrop').classList.remove('open');
+  ppmEditingId = null;
+}
+
+async function handleSavePpmTask(){
+  if(currentRole !== 'maintenance') return;
+  const name = el('p_name').value.trim();
+  if(!name){ toast('Task name is required'); return; }
+  const room = el('p_room').value.trim();
+  if(!room){ toast('Room is required'); return; }
+  const nextDueRaw = el('p_nextDueAt').value;
+  if(!nextDueRaw){ toast('Next due date is required'); return; }
+  const intervalValue = parseInt(el('p_intervalValue').value, 10);
+  if(!intervalValue || intervalValue < 1){ toast('Enter a valid interval'); return; }
+
+  const isNew = !ppmEditingId;
+  let task = ppmEditingId ? ppmTasks.find(t=>t.id===ppmEditingId) : null;
+  if(!task) task = { id: uid('p') };
+
+  task.name = name;
+  task.room = room;
+  task.recurrenceType = el('p_recurrenceType').value;
+  task.intervalValue = intervalValue;
+  task.intervalUnit = el('p_intervalUnit').value;
+  task.nextDueAt = new Date(nextDueRaw + 'T00:00:00').toISOString();
+  task.contractor = el('p_contractor').value.trim();
+  task.updatedByUid = currentUser.uid;
+  task.updatedByName = currentUser.name;
+  task.updatedAt = new Date().toISOString();
+  if(isNew){
+    task.createdByUid = currentUser.uid;
+    task.createdByName = currentUser.name;
+    task.createdAt = task.updatedAt;
+    task.lastCompletedAt = null;
+    task.lastCompletedJobId = null;
+    task.activeJobId = null;
+  }
+
+  await DB.putPpmTask(task);
+  closePpmTaskSheet();
+  toast('Saved');
+}
+
+async function handleDeletePpmTask(){
+  if(currentRole !== 'maintenance' || !ppmEditingId) return;
+  await DB.deletePpmTask(ppmEditingId);
+  closePpmTaskSheet();
+  toast('Deleted');
+}
+
 // ---------------- settings sheet (maintenance only) ----------------
 
 function openSettings(){
@@ -1339,6 +1622,7 @@ on('pinSubmitBtn', 'click', handleLogin);
 on('usernameInput', 'keydown', (e)=>{ if(e.key==='Enter') el('pinInput').focus(); });
 on('pinInput', 'keydown', (e)=>{ if(e.key==='Enter') handleLogin(); });
 on('logoutBtn', 'click', handleLogout);
+on('siteTitle', 'click', ()=> showView('home'));
 
 on('f_area', 'change', ()=>{ populateRoomSelect('f_room', 'f_area'); });
 on('f_issuePreset', 'change', ()=>{
@@ -1376,6 +1660,15 @@ on('guideBtn', 'click', openGuide);
 on('loginGuideBtn', 'click', openGuide);
 on('guideCloseBtn', 'click', closeGuide);
 on('guideBackdrop', 'click', (e)=>{ if(e.target.id==='guideBackdrop') closeGuide(); });
+
+on('ppmCloseBtn', 'click', closePpmList);
+on('ppmAddBtn', 'click', ()=>openPpmTaskSheet(null));
+on('ppmBackdrop', 'click', (e)=>{ if(e.target.id==='ppmBackdrop') closePpmList(); });
+on('p_area', 'change', ()=>{ populateRoomSelect('p_room', 'p_area'); });
+on('ppmTaskCancelBtn', 'click', closePpmTaskSheet);
+on('ppmTaskSaveBtn', 'click', handleSavePpmTask);
+on('ppmTaskDeleteBtn', 'click', handleDeletePpmTask);
+on('ppmTaskBackdrop', 'click', (e)=>{ if(e.target.id==='ppmTaskBackdrop') closePpmTaskSheet(); });
 
 on('searchInput', 'input', render);
 on('showAllBtn', 'click', ()=>{
@@ -1415,6 +1708,7 @@ DB.onAuthChange((user)=>{
     el('loginScreen').style.display = 'none';
     el('appRoot').style.display = '';
     applyRolePermissions(currentRole);
+    showView('home');
     subscribeData();
   } else {
     currentUser = null;
@@ -1435,6 +1729,10 @@ el('versionTagLogin').textContent = `v${APP_VERSION} · ${APP_STAGE}`;
 
 checkForUpdate();
 setInterval(checkForUpdate, 15 * 60 * 1000); // catch a deploy while the app is left open
+setInterval(checkPpmDue, 15 * 60 * 1000); // catch a PPM task falling due while the app is left open
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible') checkForUpdate();
+  if(document.visibilityState === 'visible'){
+    checkForUpdate();
+    checkPpmDue();
+  }
 });

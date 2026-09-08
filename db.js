@@ -127,6 +127,19 @@ const DB = {
     await firestore.collection('walks').doc(walk.id).set(walk);
   },
 
+  // ---- PPM (planned preventative maintenance) tasks (realtime) ----
+  onPpmTasksChange(callback) {
+    return firestore.collection('ppmTasks').onSnapshot((snap) => {
+      callback(snap.docs.map(d => d.data()));
+    });
+  },
+  async putPpmTask(task) {
+    await firestore.collection('ppmTasks').doc(task.id).set(task);
+  },
+  async deletePpmTask(id) {
+    await firestore.collection('ppmTasks').doc(id).delete();
+  },
+
   // ---- config (realtime) ----
   onConfigChange(callback) {
     return firestore.collection('config').doc('main').onSnapshot((doc) => {

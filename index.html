@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.27">
+<link rel="stylesheet" href="style.css?v=0.1.28">
 </head>
 <body>
 
@@ -79,7 +79,7 @@
 
 <header>
   <div class="header-row header-title-row">
-    <h1 id="siteTitle">Maintenance Tracker</h1>
+    <h1 id="siteTitle" role="button" aria-label="Home">Maintenance Tracker</h1>
   </div>
   <div class="header-row header-user-row">
     <span class="role-badge" id="roleBadge"></span>
@@ -119,7 +119,14 @@
   <div class="header-row header-stats-row" id="summaryLine">Loading…</div>
 </header>
 
-<div class="controls">
+<!-- Home: the landing screen after login, tiles into each section.
+     Built entirely in JS (renderHome()) since the tile set differs by
+     role — see homeTilesForRole() in app.js. -->
+<div id="homeScreen">
+  <div class="home-tiles" id="homeTiles"></div>
+</div>
+
+<div class="controls" id="controls">
   <div class="search-row">
     <input id="searchInput" type="text" placeholder="Filter by room number…">
     <button id="showAllBtn" class="show-all-btn">Show all</button>
@@ -279,6 +286,83 @@
   </div>
 </div>
 
+<!-- PPM (planned preventative maintenance): recurring schedule list -->
+<div class="sheet-backdrop" id="ppmBackdrop">
+  <div class="sheet">
+    <h2>PPM Tasks</h2>
+    <p class="settings-hint">Recurring/compliance items — fire alarm
+    tests, servicing, statutory checks. When one falls due it becomes a
+    normal job automatically; marking that job Done schedules the next
+    one.</p>
+    <div id="ppmList"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="ppmCloseBtn">Close</button>
+      <button class="btn btn-primary" id="ppmAddBtn">Add task</button>
+    </div>
+  </div>
+</div>
+
+<!-- PPM task: add/edit one recurring schedule -->
+<div class="sheet-backdrop" id="ppmTaskBackdrop">
+  <div class="sheet">
+    <h2 id="ppmTaskSheetTitle">New PPM Task</h2>
+    <div class="field">
+      <label>Task name</label>
+      <input id="p_name" type="text" placeholder="e.g. Fire alarm call point test">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Area</label>
+        <select id="p_area">
+          <option value="">Select area…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Room</label>
+        <select id="p_room">
+          <option value="">Select an area first…</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Recurrence</label>
+      <select id="p_recurrenceType">
+        <option value="fixed">Fixed schedule — doesn't drift if done late</option>
+        <option value="rolling">Rolling — counts from when it's actually done</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Every</label>
+        <input id="p_intervalValue" type="number" min="1" value="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <select id="p_intervalUnit">
+          <option value="days">Day(s)</option>
+          <option value="weeks">Week(s)</option>
+          <option value="months">Month(s)</option>
+          <option value="years">Year(s)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Next due</label>
+      <input id="p_nextDueAt" type="date">
+    </div>
+    <div class="field">
+      <label>Contractor (optional)</label>
+      <input id="p_contractor" type="text" placeholder="e.g. ThyssenKrupp — lift servicing">
+    </div>
+    <div class="audit-line" id="ppmTaskAudit"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="ppmTaskCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="ppmTaskDeleteBtn" style="display:none;">Delete</button>
+      <button class="btn btn-primary" id="ppmTaskSaveBtn">Save task</button>
+    </div>
+  </div>
+</div>
+
 <!-- Notifications panel: what's new since you last looked -->
 <div class="sheet-backdrop" id="notifBackdrop">
   <div class="sheet">
@@ -404,6 +488,9 @@
       opens full-screen and keeps working even with no signal.</p>
       <p>Your name and role always show at the top, just under the header —
       check it's you before logging anything.</p>
+      <p>Signing in lands you on a <strong>Home screen</strong> of icon
+      tiles linking into whatever this app covers for your role — tap the
+      title in the header any time to get back to it.</p>
     </div>
 
     <div class="settings-section">
@@ -504,6 +591,21 @@
         walk checklist), and Rooms.</li>
         <li>Roles and PINs are set up separately via the Firebase
         console, not in the app.</li>
+        <li><strong>PPM (Planned Preventative Maintenance)</strong> —
+        the calendar tile on Home — is for recurring/compliance
+        tasks (fire alarm tests, legionella checks, lift servicing…) as
+        opposed to the reactive jobs everywhere else. Add a task with a
+        room, how often it repeats, and its next due date; optionally
+        note a contractor. <strong>Fixed</strong> repeats keep the
+        original schedule even if a check runs late (e.g. always the
+        1st of the month); <strong>Rolling</strong> repeats count from
+        whenever it's actually completed instead. When a task falls
+        due, it automatically becomes an ordinary job (tagged
+        <strong>PPM</strong>) — marking that job Done the normal way
+        (note required, same as any other job) is what pushes the task
+        on to its next due date. This only happens while someone's got
+        the app open, so a task due while it's closed won't spawn its
+        job until the next time someone opens it.</li>
       </ul>
     </div>
 
@@ -529,7 +631,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.27"></script>
-<script src="app.js?v=0.1.27"></script>
+<script src="db.js?v=0.1.28"></script>
+<script src="app.js?v=0.1.28"></script>
 </body>
 </html>

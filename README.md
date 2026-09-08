@@ -190,6 +190,9 @@ working with no signal once it's loaded once.
   PIN — not a shared one.
 - On first open, enter your username and PIN. Everyone stays signed in
   after that on that device until they tap the ⏻ logout button.
+- Signing in opens a **Home screen** of icon tiles into whatever this app
+  covers for that role, rather than dropping straight into the job list —
+  tap the header title any time to get back to it.
 - There's a built-in **User Guide** covering all of this from inside the
   app itself — "How to use this app" on the login screen (readable
   before signing in), or the book icon in the header once signed in.
@@ -359,6 +362,45 @@ floor before moving on again is fine — only the timestamp from when you
 actually move forward counts. A run of very short gaps between floors
 is the tell for someone rattling through the checklist at their desk
 rather than actually walking it.
+
+### Planned Preventative Maintenance (PPM)
+
+Everything else in this app is reactive — someone spots a problem, it
+gets logged. PPM is the opposite: recurring, compliance-driven tasks
+(fire alarm tests, emergency lighting, legionella/water hygiene checks,
+PAT testing, fire extinguisher servicing, lift servicing, boiler/gas
+safety) that need doing on a schedule whether or not anything's visibly
+wrong. The PPM tile on Home (Maintenance only) opens the task list.
+
+Each task has a name, a room (reuse the same Area/Room picker as
+everywhere else — for a task that isn't really about one specific room,
+pick whatever's closest, e.g. "Plant Room", the same way Fire & Security
+Walk uses a synthetic "{Floor} Corridor" room), how often it repeats, a
+next-due date, and an optional freehand contractor note. Two repeat
+styles:
+
+- **Fixed** — the next due date is always calculated from the
+  *previous scheduled* date, so the schedule never drifts even if a
+  check runs late (e.g. always due on the 1st of the month, whenever it
+  actually got done last time).
+- **Rolling** — the next due date is calculated from whenever the task
+  is *actually completed*, so a late completion pushes the whole future
+  schedule back with it.
+
+When a task falls due, the app turns it into an ordinary job
+automatically — tagged `PPM`, showing up in the normal job list like
+anything else. Marking that job Done (same rule as any job: a note on
+what was done is required first) is what advances the task to its next
+due date; nothing else touches the schedule. There's no server-side
+cron in this architecture, so a task only actually gets checked while
+someone's signed in with the app open (on load, and every 15 minutes
+after) — if nobody opens the app on the day something falls due, its
+job won't appear until the next time someone does.
+
+There's no bulk-import for PPM tasks (unlike Rooms) — add each one by
+hand via **+ Add task**, using this hotel's actual inspection/contract
+dates and intervals rather than guessed ones, since getting a
+compliance schedule wrong is worse than not automating it at all.
 
 ## Adding someone new, or rotating/revoking a PIN
 

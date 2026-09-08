@@ -118,6 +118,22 @@ header h1{
   color:var(--ink-soft); white-space:nowrap;
 }
 
+.ppm-item{
+  background:#fff; border:1.5px solid var(--line); border-radius:12px;
+  padding:12px 13px; margin-bottom:10px; cursor:pointer;
+}
+.ppm-item-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.ppm-item-name{font-size:14px; font-weight:600; color:var(--ink); line-height:1.35;}
+.ppm-status{
+  flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.03em; border-radius:8px; padding:4px 8px; white-space:nowrap;
+}
+.ppm-status-overdue{color:var(--open); background:var(--open-bg);}
+.ppm-status-soon{color:var(--progress); background:var(--progress-bg);}
+.ppm-status-ok{color:var(--done); background:var(--done-bg);}
+.ppm-item-meta{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); margin-top:5px;}
+.ppm-item-due{font-size:12px; color:var(--ink-soft); margin-top:3px;}
+
 /* ---------------- update banner ---------------- */
 .update-banner{
   display:none; position:fixed; top:0; left:0; right:0; z-index:200;
@@ -169,6 +185,27 @@ header h1{
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft);
   text-align:center; margin-top:14px;
 }
+#siteTitle{cursor:pointer;}
+
+.home-tiles{
+  display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;
+  padding:16px 14px;
+}
+.home-tile{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:9px; background:#fff; border:1.5px solid var(--line); border-radius:16px;
+  padding:22px 10px; cursor:pointer; color:var(--plaque);
+  box-shadow:0 1px 2px rgba(30,36,48,0.04);
+}
+.home-tile-icon{
+  display:flex; align-items:center; justify-content:center;
+  width:44px; height:44px; border-radius:12px; background:var(--plaque);
+  color:var(--plaque-brass); font-size:20px;
+}
+.home-tile-label{
+  font-size:13px; font-weight:600; color:var(--ink); text-align:center; line-height:1.3;
+}
+
 .controls{padding:12px 14px 6px;}
 .search-row{display:flex; gap:8px; margin-bottom:10px;}
 .search-row input{
