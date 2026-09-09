@@ -307,19 +307,32 @@ freehand note, then **Next floor**. Nothing is saved until you tap
 throws the whole walk away with nothing logged — no half-finished
 findings left behind.
 
-Each fault you tap becomes its own job, tagged `Fire & Security Walk`
-and logged against a "**{Floor} Corridor**" room that's created
-automatically the first time that floor gets a finding (e.g. "3rd Floor
-Corridor") — so walk findings group under the same floor/area as
-everything else, without needing a numbered room. A floor's optional
-note is attached to whichever job(s) that floor produced; if you write
-a note but tap no faults, it's logged as its own "Walk note" job so it
-isn't lost.
+Each fault you tap becomes its own job, tagged `Fire & Security Walk`.
+By default it's logged against a "**{Floor} Corridor**" room that's
+created automatically the first time that floor gets a finding (e.g.
+"3rd Floor Corridor") — so walk findings group under the same
+floor/area as everything else, without needing a numbered room. Tapping
+a fault reveals a room picker right next to it, defaulting to that
+corridor room but switchable to any real room already set up for that
+floor — use it when a fault actually belongs to a specific room rather
+than "the floor" in general (e.g. an AC control panel's P10 fault
+logged against the room it's actually in, or corridor/emergency
+lighting logged against whichever numbered room is nearest). Each
+fault keeps its own room independently, so different faults on the
+same floor can land on different rooms. A floor's optional note is
+attached to whichever job(s) that floor produced; if you write a note
+but tap no faults, it's logged as its own "Walk note" job (against the
+corridor room) so it isn't lost.
 
 **A fault that keeps getting found doesn't pile up duplicate jobs.**
 Before logging a tapped fault as a new job, the walk checks whether
 there's already an open (non-Done) job for that exact room and fault —
-if so, it doesn't create another one. This is what makes a fault that
+if so, it doesn't create another one. Matching is room-specific, so
+picking a different room for the same fault on a later walk (e.g. a
+different "nearest room" call for the same corridor light) starts a
+fresh job rather than reconfirming the earlier one — worth being
+consistent about which room a recurring fault gets logged against.
+This is what makes a fault that
 takes days to sort out (e.g. an EM light fitting that needs building,
 testing and fitting) behave correctly: it stays as the *same* job,
 carried through Open → In Progress → Awaiting Parts → Done at whatever

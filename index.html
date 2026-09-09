@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.31">
+<link rel="stylesheet" href="style.css?v=0.1.32">
 </head>
 <body>
 
@@ -267,7 +267,7 @@
     <div class="walk-floor-name" id="walkFloorName"></div>
     <div class="field">
       <label>Faults found on this floor (leave blank if all in order)</label>
-      <div class="chips chips-wrap" id="walkFaultChips"></div>
+      <div class="walk-fault-rows" id="walkFaultChips"></div>
     </div>
     <div class="field">
       <label>Note (optional)</label>
@@ -557,8 +557,12 @@
         <li>You're walked floor by floor, highest to lowest, then any
         other areas (Bar, Kitchen, etc.) after.</li>
         <li>On each floor: tap any faults found — leave them all
-        untapped if it's all in order — add a note if useful, then
-        <strong>Next floor</strong>.</li>
+        untapped if it's all in order. Tapping one reveals a room picker
+        next to it, defaulting to that floor's general corridor room but
+        switchable to the actual room a fault belongs to (e.g. an AC
+        panel's P10 fault, or the nearest room to a corridor/emergency
+        light) — each fault keeps its own room. Add a note if useful,
+        then <strong>Next floor</strong>.</li>
         <li>Nothing saves until you tap <strong>Finish walk</strong> on
         the last floor. <strong>Cancel walk</strong> at any point throws
         the whole thing away — nothing half-logged.</li>
@@ -638,7 +642,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.31"></script>
-<script src="app.js?v=0.1.31"></script>
+<script src="db.js?v=0.1.32"></script>
+<script src="app.js?v=0.1.32"></script>
 </body>
 </html>

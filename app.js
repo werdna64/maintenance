@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.31';
+const APP_VERSION = '0.1.32';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -940,14 +940,18 @@ async function handleSubmitReport(){
 // checklist that defaults to none selected ("all in order") plus an
 // optional freehand note. Nothing is written to Firestore until "Finish
 // walk" on the last floor — everything lives in memory until then, so
-// "Cancel walk" can discard it all with zero partial writes. Findings
-// attach to an auto-created "{Area} Corridor" room per floor (a
-// floor-unique room number, so different floors' corridor jobs don't
-// collide into one room group).
+// "Cancel walk" can discard it all with zero partial writes. Each
+// tapped fault gets its own room, defaulting to an auto-created
+// "{Area} Corridor" catch-all (a floor-unique room, so different
+// floors' corridor jobs don't collide into one room group) but
+// switchable to any real room on that floor — e.g. the AC control
+// panel a P10 fault actually lives in, or whichever room is nearest an
+// emergency light — so the job lands on the right room, not just "the
+// floor" in general.
 
 let walkAreas = [];
 let walkIndex = 0;
-let walkData = {}; // { [area]: { faults: Set<string>, note: string, completedAt: string|null } }
+let walkData = {}; // { [area]: { faults: Map<issue, room>, note: string, completedAt: string|null } }
 let walkStartedAt = null;
 
 // Walk order: floors highest-to-lowest (9th Floor down to 1st, however
@@ -976,7 +980,7 @@ function openWalkWizard(){
   walkIndex = 0;
   walkData = {};
   walkStartedAt = new Date().toISOString();
-  walkAreas.forEach(a => walkData[a] = { faults: new Set(), note: '', completedAt: null });
+  walkAreas.forEach(a => walkData[a] = { faults: new Map(), note: '', completedAt: null });
   renderWalkStep();
   el('walkBackdrop').classList.add('open');
 }
@@ -991,17 +995,50 @@ function renderWalkStep(){
   el('walkProgress').textContent = `Floor ${walkIndex + 1} of ${walkAreas.length}`;
   el('walkFloorName').textContent = area;
 
+  const defaultRoom = `${area} Corridor`;
+  const areaRooms = rooms.filter(r => r.area === area)
+    .sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
+  const roomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
+    areaRooms.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('');
+
+  // Each fault's room select is built once per render and toggled via
+  // direct DOM manipulation (not a full re-render on every tap) — a
+  // full re-render would stomp on whatever's mid-typed in the Note box
+  // below, since that's only saved back to walkData on Back/Next.
   const wrap = el('walkFaultChips');
   wrap.innerHTML = '';
   (config.walkFaults||[]).forEach(f=>{
+    const row = document.createElement('div');
+    row.className = 'walk-fault-row';
+
     const chip = document.createElement('div');
     chip.className = 'chip' + (data.faults.has(f) ? ' active' : '');
     chip.textContent = f;
+
+    const select = document.createElement('select');
+    select.className = 'walk-fault-room';
+    select.innerHTML = roomOptionsHtml;
+    select.value = data.faults.get(f) || defaultRoom;
+    select.style.display = data.faults.has(f) ? '' : 'none';
+    select.addEventListener('click', e => e.stopPropagation());
+    select.addEventListener('change', ()=>{ data.faults.set(f, select.value); });
+
     chip.addEventListener('click', ()=>{
-      if(data.faults.has(f)) data.faults.delete(f); else data.faults.add(f);
-      chip.classList.toggle('active');
+      if(data.faults.has(f)){
+        data.faults.delete(f);
+        chip.classList.remove('active');
+        select.style.display = 'none';
+      } else {
+        data.faults.set(f, defaultRoom);
+        chip.classList.add('active');
+        select.value = defaultRoom;
+        select.style.display = '';
+      }
     });
-    wrap.appendChild(chip);
+
+    row.appendChild(chip);
+    row.appendChild(select);
+    wrap.appendChild(row);
   });
 
   el('walkNote').value = data.note;
@@ -1036,10 +1073,10 @@ async function walkGoNext(){
   }
 }
 
-async function createWalkJob(area, issue, note){
+async function createWalkJob(room, issue, note){
   const job = {
     id: uid('j'),
-    room: `${area} Corridor`,
+    room,
     issue,
     status: 'Open',
     source: 'Fire & Security Walk',
@@ -1064,10 +1101,13 @@ async function createWalkJob(area, issue, note){
 // re-finding (an EM light fitting that takes days to build, test and
 // fit) stays as the ONE job it already is, tracked through its status
 // changes, rather than spawning a fresh duplicate every walk that
-// re-confirms it's still broken. Returns true if a new job was created,
-// false if an existing one was found (and, when possible, reconfirmed).
-async function logWalkFinding(area, issue, note){
-  const room = `${area} Corridor`;
+// re-confirms it's still broken. Matching is on room *and* issue, so
+// picking a different room for the same fault on a later walk (e.g.
+// "nearest room" judged differently) starts a fresh job rather than
+// reconfirming the old one — the trade-off for room-level precision.
+// Returns true if a new job was created, false if an existing one was
+// found (and, when possible, reconfirmed).
+async function logWalkFinding(room, issue, note){
   const existing = jobs.find(j => j.room === room && j.issue === issue && j.status !== 'Done');
   if(existing){
     // Only Maintenance can update an existing job (firestore.rules) —
@@ -1089,29 +1129,31 @@ async function logWalkFinding(area, issue, note){
     }
     return false;
   }
-  await createWalkJob(area, issue, note);
+  await createWalkJob(room, issue, note);
   return true;
 }
 
 async function finishWalk(){
   const floors = walkAreas.map(area=>{
     const data = walkData[area];
-    const faults = Array.from(data.faults);
+    const faults = Array.from(data.faults, ([issue, room]) => ({issue, room}));
     return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note, completedAt: data.completedAt };
   });
 
   let newCount = 0, reconfirmedCount = 0;
   for(const floor of floors){
     if(floor.allClear) continue;
-    await ensureRoomExists(`${floor.area} Corridor`, floor.area);
     if(floor.faults.length === 0){
       // Freehand notes aren't matched/de-duplicated — different days'
       // notes are usually about different things, so each is its own job.
-      await createWalkJob(floor.area, 'Walk note', floor.note);
+      const room = `${floor.area} Corridor`;
+      await ensureRoomExists(room, floor.area);
+      await createWalkJob(room, 'Walk note', floor.note);
       newCount++;
     } else {
-      for(const fault of floor.faults){
-        const isNew = await logWalkFinding(floor.area, fault, floor.note);
+      for(const {issue, room} of floor.faults){
+        await ensureRoomExists(room, floor.area);
+        const isNew = await logWalkFinding(room, issue, floor.note);
         if(isNew) newCount++; else reconfirmedCount++;
       }
     }
@@ -1240,7 +1282,14 @@ function renderWalkEntry(w){
               ${f.allClear
                 ? `<span class="walk-clear-badge">All clear</span>`
                 : (f.faults && f.faults.length
-                  ? `<span class="walk-fault-list">${f.faults.map(fault=>`<span class="fault-chip">${escapeHtml(fault)}</span>`).join('')}</span>`
+                  ? `<span class="walk-fault-list">${f.faults.map(fault=>{
+                      // Walks logged before per-fault rooms just have a
+                      // plain string here — show those with no room tag.
+                      const issue = typeof fault === 'string' ? fault : fault.issue;
+                      const room = typeof fault === 'string' ? null : fault.room;
+                      const roomTag = (room && room !== `${f.area} Corridor`) ? ` · ${escapeHtml(room)}` : '';
+                      return `<span class="fault-chip">${escapeHtml(issue)}${roomTag}</span>`;
+                    }).join('')}</span>`
                   : '')}
               ${f.completedAt ? `<span class="walk-floor-time">${fmtTimeOnly(f.completedAt)}${elapsed ? ` · +${elapsed}` : ''}</span>` : ''}
               ${f.note ? `<div class="walk-floor-note">${escapeHtml(f.note)}</div>` : ''}

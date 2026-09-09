@@ -226,6 +226,14 @@ header h1{
 }
 .chip.active{background:var(--plaque); color:#fff; border-color:var(--plaque);}
 
+.walk-fault-rows{display:flex; flex-direction:column; gap:8px;}
+.walk-fault-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.walk-fault-room{
+  font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink);
+  border:1.5px solid var(--line); border-radius:8px; padding:6px 8px; background:#fff;
+  max-width:200px;
+}
+
 .group{padding:0 14px; margin-top:18px;}
 .group-label{
   font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em;
