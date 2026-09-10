@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.33';
+const APP_VERSION = '0.1.34';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1043,44 +1043,105 @@ function renderWalkStep(){
         `</optgroup>`;
     }).join('');
 
-  // Each fault's room select is built once per render and toggled via
+  // Each fault's room picker is built once per render and toggled via
   // direct DOM manipulation (not a full re-render on every tap) — a
   // full re-render would stomp on whatever's mid-typed in the Note box
-  // below, since that's only saved back to walkData on Back/Next.
+  // below, since that's only saved back to walkData on Back/Next. A
+  // fault can have more than one room (e.g. several P10s found around
+  // the hotel in one walk) — tapping the chip logs the default room to
+  // start, and "+ Add another room" appends more, each independently
+  // removable.
   const wrap = el('walkFaultChips');
   wrap.innerHTML = '';
   walkFaultsForArea(area).forEach(f=>{
     const name = walkFaultName(f);
+    const roomOptionsHtml = walkFaultWholeHotel(f) ? hotelRoomOptionsHtml : floorRoomOptionsHtml;
+
     const row = document.createElement('div');
     row.className = 'walk-fault-row';
 
     const chip = document.createElement('div');
     chip.className = 'chip' + (data.faults.has(name) ? ' active' : '');
     chip.textContent = name;
+    row.appendChild(chip);
 
-    const select = document.createElement('select');
-    select.className = 'walk-fault-room';
-    select.innerHTML = walkFaultWholeHotel(f) ? hotelRoomOptionsHtml : floorRoomOptionsHtml;
-    select.value = data.faults.get(name) || defaultRoom;
-    select.style.display = data.faults.has(name) ? '' : 'none';
-    select.addEventListener('click', e => e.stopPropagation());
-    select.addEventListener('change', ()=>{ data.faults.set(name, select.value); });
+    const roomsWrap = document.createElement('div');
+    roomsWrap.className = 'walk-fault-rooms';
+    roomsWrap.style.display = data.faults.has(name) ? '' : 'none';
+    row.appendChild(roomsWrap);
+
+    const linesWrap = document.createElement('div');
+    linesWrap.className = 'walk-fault-room-lines';
+    roomsWrap.appendChild(linesWrap);
+
+    function syncRooms(){
+      data.faults.set(name, Array.from(linesWrap.querySelectorAll('select')).map(s=>s.value));
+    }
+
+    function addRoomLine(room){
+      const line = document.createElement('div');
+      line.className = 'walk-fault-room-line';
+
+      const select = document.createElement('select');
+      select.className = 'walk-fault-room';
+      select.innerHTML = roomOptionsHtml;
+      select.value = room;
+      select.addEventListener('click', e => e.stopPropagation());
+      select.addEventListener('change', syncRooms);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'walk-fault-room-remove';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', e=>{
+        e.stopPropagation();
+        line.remove();
+        if(linesWrap.children.length === 0){
+          // no rooms left for this fault — untick it entirely
+          data.faults.delete(name);
+          chip.classList.remove('active');
+          roomsWrap.style.display = 'none';
+        } else {
+          syncRooms();
+        }
+      });
+
+      line.appendChild(select);
+      line.appendChild(removeBtn);
+      linesWrap.appendChild(line);
+    }
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'walk-fault-room-add';
+    addBtn.textContent = '+ Add another room';
+    addBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      addRoomLine(defaultRoom);
+      syncRooms();
+    });
+    roomsWrap.appendChild(addBtn);
+
+    if(data.faults.has(name)){
+      const existingRooms = data.faults.get(name);
+      (existingRooms && existingRooms.length ? existingRooms : [defaultRoom]).forEach(addRoomLine);
+    }
 
     chip.addEventListener('click', ()=>{
       if(data.faults.has(name)){
         data.faults.delete(name);
         chip.classList.remove('active');
-        select.style.display = 'none';
+        roomsWrap.style.display = 'none';
+        linesWrap.innerHTML = '';
       } else {
-        data.faults.set(name, defaultRoom);
+        linesWrap.innerHTML = '';
+        data.faults.set(name, [defaultRoom]);
+        addRoomLine(defaultRoom);
         chip.classList.add('active');
-        select.value = defaultRoom;
-        select.style.display = '';
+        roomsWrap.style.display = '';
       }
     });
 
-    row.appendChild(chip);
-    row.appendChild(select);
     wrap.appendChild(row);
   });
 
@@ -1179,7 +1240,10 @@ async function logWalkFinding(room, issue, note){
 async function finishWalk(){
   const floors = walkAreas.map(area=>{
     const data = walkData[area];
-    const faults = Array.from(data.faults, ([issue, room]) => ({issue, room}));
+    // A fault can carry more than one room (e.g. several P10s found in
+    // one walk) — de-duplicated so picking the same room twice by
+    // accident doesn't log the same finding as two separate jobs.
+    const faults = Array.from(data.faults, ([issue, rooms]) => ({issue, rooms: [...new Set(rooms)]}));
     return { area, faults, note: data.note || '', allClear: faults.length === 0 && !data.note, completedAt: data.completedAt };
   });
 
@@ -1194,10 +1258,12 @@ async function finishWalk(){
       await createWalkJob(room, 'Walk note', floor.note);
       newCount++;
     } else {
-      for(const {issue, room} of floor.faults){
-        await ensureRoomExists(room, floor.area);
-        const isNew = await logWalkFinding(room, issue, floor.note);
-        if(isNew) newCount++; else reconfirmedCount++;
+      for(const {issue, rooms} of floor.faults){
+        for(const room of rooms){
+          await ensureRoomExists(room, floor.area);
+          const isNew = await logWalkFinding(room, issue, floor.note);
+          if(isNew) newCount++; else reconfirmedCount++;
+        }
       }
     }
   }
@@ -1247,9 +1313,24 @@ function fmtDayHeading(dayKey){
   return new Date(y, m-1, d).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
 }
 
+// A walk record's own faults[] has changed shape as the walk feature
+// grew — a plain string (oldest walks, one room-less job per fault), a
+// single {issue, room} (one room per fault), or the current {issue,
+// rooms} (a fault can cover several rooms in one walk). Normalizing
+// here means every reader just deals with {issue, rooms}.
+function normalizeWalkFault(f){
+  if(typeof f === 'string') return { issue: f, rooms: [] };
+  if(Array.isArray(f.rooms)) return { issue: f.issue, rooms: f.rooms };
+  if(f.room) return { issue: f.issue, rooms: [f.room] };
+  return { issue: f.issue, rooms: [] };
+}
+
 function walkSummary(w){
   const floors = w.floors || [];
-  const totalFaults = floors.reduce((n,f)=> n + (f.faults ? f.faults.length : 0), 0);
+  const totalFaults = floors.reduce((n,f)=> n + (f.faults||[]).reduce((m,x)=>{
+    const { rooms } = normalizeWalkFault(x);
+    return m + Math.max(rooms.length, 1);
+  }, 0), 0);
   const anyIssues = floors.some(f=>!f.allClear);
   const label = !anyIssues ? 'All clear' : (totalFaults > 0 ? `${totalFaults} issue${totalFaults===1?'':'s'} found` : 'Notes only');
   return { totalFaults, anyIssues, label };
@@ -1326,12 +1407,21 @@ function renderWalkEntry(w){
                 ? `<span class="walk-clear-badge">All clear</span>`
                 : (f.faults && f.faults.length
                   ? `<span class="walk-fault-list">${f.faults.map(fault=>{
-                      // Walks logged before per-fault rooms just have a
-                      // plain string here — show those with no room tag.
-                      const issue = typeof fault === 'string' ? fault : fault.issue;
-                      const room = typeof fault === 'string' ? null : fault.room;
-                      const roomTag = (room && room !== `${f.area} Corridor`) ? ` · ${escapeHtml(room)}` : '';
-                      return `<span class="fault-chip">${escapeHtml(issue)}${roomTag}</span>`;
+                      const { issue, rooms } = normalizeWalkFault(fault);
+                      // One chip per room the fault was found in (so
+                      // several P10s in one walk show as separate
+                      // entries) — a room matching the plain corridor
+                      // catch-all isn't worth calling out, and a fault
+                      // logged with no room at all (pre-room-picker
+                      // walks) just shows the issue name once.
+                      const tagRooms = rooms.filter(r=>r!==`${f.area} Corridor`);
+                      if(rooms.length === 0){
+                        return `<span class="fault-chip">${escapeHtml(issue)}</span>`;
+                      }
+                      return rooms.map(room=>{
+                        const roomTag = tagRooms.includes(room) ? ` · ${escapeHtml(room)}` : '';
+                        return `<span class="fault-chip">${escapeHtml(issue)}${roomTag}</span>`;
+                      }).join('');
                     }).join('')}</span>`
                   : '')}
               ${f.completedAt ? `<span class="walk-floor-time">${fmtTimeOnly(f.completedAt)}${elapsed ? ` · +${elapsed}` : ''}</span>` : ''}

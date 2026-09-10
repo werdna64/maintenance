@@ -227,11 +227,23 @@ header h1{
 .chip.active{background:var(--plaque); color:#fff; border-color:var(--plaque);}
 
 .walk-fault-rows{display:flex; flex-direction:column; gap:8px;}
-.walk-fault-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.walk-fault-row{display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;}
+.walk-fault-rooms{display:flex; flex-direction:column; gap:6px; flex-basis:100%;}
+.walk-fault-room-lines{display:flex; flex-direction:column; gap:6px;}
+.walk-fault-room-line{display:flex; align-items:center; gap:6px;}
 .walk-fault-room{
   font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink);
   border:1.5px solid var(--line); border-radius:8px; padding:6px 8px; background:#fff;
   max-width:200px;
+}
+.walk-fault-room-remove{
+  flex:0 0 auto; border:none; background:transparent; color:var(--open);
+  font-weight:700; font-size:16px; line-height:1; cursor:pointer; padding:0 4px;
+}
+.walk-fault-room-add{
+  align-self:flex-start; border:none; background:transparent; color:var(--plaque);
+  font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+  text-decoration:underline; text-underline-offset:2px; cursor:pointer; padding:2px 0;
 }
 
 .group{padding:0 14px; margin-top:18px;}

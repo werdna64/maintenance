@@ -317,12 +317,16 @@ corridor room but switchable to any real room already set up for that
 floor — use it when a fault actually belongs to a specific room rather
 than "the floor" in general (e.g. an AC control panel's P10 fault
 logged against the room it's actually in, or corridor/emergency
-lighting logged against whichever numbered room is nearest). Each
-fault keeps its own room independently, so different faults on the
-same floor can land on different rooms. A floor's optional note is
-attached to whichever job(s) that floor produced; if you write a note
-but tap no faults, it's logged as its own "Walk note" job (against the
-corridor room) so it isn't lost.
+lighting logged against whichever numbered room is nearest). **+ Add
+another room** under a ticked fault logs a second (or third…) job for
+that same fault against a different room in one go — for something
+like several P10s found around the hotel in a single walk — each with
+its own remove button. Each fault's rooms are independent of every
+other fault, so different faults on the same floor can land on
+different rooms. A floor's optional note is attached to whichever
+job(s) that floor produced; if you write a note but tap no faults,
+it's logged as its own "Walk note" job (against the corridor room) so
+it isn't lost.
 
 **A fault that keeps getting found doesn't pile up duplicate jobs.**
 Before logging a tapped fault as a new job, the walk checks whether

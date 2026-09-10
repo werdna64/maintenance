@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.33">
+<link rel="stylesheet" href="style.css?v=0.1.34">
 </head>
 <body>
 
@@ -573,9 +573,11 @@
         that panel's actually on). Tapping a fault reveals a room
         picker next to it, defaulting to that floor's general corridor
         room but switchable to the actual room it belongs to (or the
-        nearest room, for something like corridor/emergency lighting)
-        — each fault keeps its own room. Add a note if useful, then
-        <strong>Next floor</strong>.</li>
+        nearest room, for something like corridor/emergency lighting).
+        <strong>+ Add another room</strong> logs the same fault against
+        a second (or third…) room too — for several of the same thing
+        found in one walk — each removable on its own. Add a note if
+        useful, then <strong>Next floor</strong>.</li>
         <li>Nothing saves until you tap <strong>Finish walk</strong> on
         the last floor. <strong>Cancel walk</strong> at any point throws
         the whole thing away — nothing half-logged.</li>
@@ -655,7 +657,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.33"></script>
-<script src="app.js?v=0.1.33"></script>
+<script src="db.js?v=0.1.34"></script>
+<script src="app.js?v=0.1.34"></script>
 </body>
 </html>
