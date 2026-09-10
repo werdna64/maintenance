@@ -392,9 +392,13 @@ header h1{
   display:flex; gap:8px; align-items:center; background:#fff; border:1.5px solid var(--line);
   border-radius:10px; padding:8px 10px; margin-bottom:6px; font-size:13.5px;
 }
-.room-row .r-num{font-family:'IBM Plex Mono',monospace; font-weight:700; width:52px;}
-.room-row .r-area{flex:1; color:var(--ink-soft); font-size:12px;}
+.room-row .r-num{flex:1; font-family:'IBM Plex Mono',monospace; font-weight:700;}
 .room-row button{border:none; background:transparent; color:var(--open); font-weight:700; cursor:pointer; font-size:16px;}
+/* Rooms reuses the main list's collapsible-group styling inside a
+   sheet, which already has its own side padding — drop the group's own
+   so rooms line up with the rest of the sheet instead of double-indenting. */
+.sheet .group{padding:0; margin-top:14px;}
+.sheet .group:first-of-type{margin-top:0;}
 
 .toast{
   position:fixed; left:50%; bottom:90px; transform:translateX(-50%);

@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.36';
+const APP_VERSION = '0.1.37';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -17,6 +17,7 @@ let ppmTasks = [];    // planned preventative maintenance schedules
 let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
 let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
+let expandedRoomAreas = new Set(); // same, for the Settings > Rooms list
 let viewedJobIds = new Set(); // jobs opened this session — no longer "new" even if within the unseen window
 let editingId = null;
 let ppmEditingId = null;
@@ -1754,20 +1755,61 @@ function renderWalkFaultTags(){
   });
 }
 
+// Grouped by area/floor, collapsed by default — same pattern as the
+// main job list, since a flat alphabetical list of every room in the
+// hotel is unusable once there's a real room count in it.
 function renderRoomList(){
   const wrap = el('roomList');
   wrap.innerHTML = '';
-  const sorted = [...rooms].sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
-  sorted.forEach(r=>{
-    const row = document.createElement('div');
-    row.className = 'room-row';
-    row.innerHTML = `<span class="r-num">${escapeHtml(r.number)}</span><span class="r-area">${escapeHtml(r.area)}</span><button data-id="${r.id}">×</button>`;
-    row.querySelector('button').addEventListener('click', async ()=>{
-      await DB.deleteRoom(r.id);
-      renderRoomList();
-      toast('Room removed');
+
+  if(rooms.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No rooms yet — add one below</div>`;
+    return;
+  }
+
+  const byArea = {};
+  rooms.forEach(r=>{
+    const area = r.area || 'Unassigned';
+    if(!byArea[area]) byArea[area] = [];
+    byArea[area].push(r);
+  });
+
+  const areaKeys = Object.keys(byArea).sort((a,b)=>{
+    const idxA = (config.areas||[]).indexOf(a);
+    const idxB = (config.areas||[]).indexOf(b);
+    if(idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if(idxA === -1) return 1;
+    if(idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
+  areaKeys.forEach(area=>{
+    const areaRooms = byArea[area].sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
+    const g = document.createElement('details');
+    g.className = 'group';
+    if(expandedRoomAreas.has(area)) g.open = true;
+    g.addEventListener('toggle', ()=>{
+      if(g.open) expandedRoomAreas.add(area); else expandedRoomAreas.delete(area);
     });
-    wrap.appendChild(row);
+
+    const summary = document.createElement('summary');
+    summary.className = 'group-label';
+    summary.innerHTML = `<span class="area-label">${escapeHtml(area)}</span><span class="group-count">${areaRooms.length}</span><div class="rule"></div>`;
+    g.appendChild(summary);
+
+    areaRooms.forEach(r=>{
+      const row = document.createElement('div');
+      row.className = 'room-row';
+      row.innerHTML = `<span class="r-num">${escapeHtml(r.number)}</span><button data-id="${r.id}">×</button>`;
+      row.querySelector('button').addEventListener('click', async ()=>{
+        await DB.deleteRoom(r.id);
+        renderRoomList();
+        toast('Room removed');
+      });
+      g.appendChild(row);
+    });
+
+    wrap.appendChild(g);
   });
 }
 
