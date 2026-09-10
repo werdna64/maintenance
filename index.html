@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.35">
+<link rel="stylesheet" href="style.css?v=0.1.36">
 </head>
 <body>
 
@@ -381,104 +381,137 @@
 </div>
 
 <!-- Settings sheet (maintenance only) -->
+<!-- Settings home: a tile per section, same pattern as the main Home
+     screen (built by renderSettingsHome() in app.js) — the section
+     list got too long to scroll through as one sheet. -->
 <div class="sheet-backdrop" id="settingsBackdrop">
   <div class="sheet">
     <h2>Settings</h2>
-
-    <div class="settings-section">
-      <h3>Site</h3>
-      <div class="field">
-        <label>Hotel / site name</label>
-        <input id="s_siteName" type="text" placeholder="e.g. Leonardo Hotel Sheffield">
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Areas</h3>
-      <div class="tag-list" id="areaTagList"></div>
-      <div class="row2">
-        <div class="field" style="margin-bottom:0;">
-          <input id="s_newArea" type="text" placeholder="Add area, e.g. Bar / Kitchen / 4th Floor">
-        </div>
-        <button class="btn btn-primary" id="addAreaBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Common Issues</h3>
-      <div class="tag-list" id="commonIssueTagList"></div>
-      <div class="row2">
-        <div class="field" style="margin-bottom:0;">
-          <input id="s_newCommonIssue" type="text" placeholder="e.g. Bath plug missing / Sink blocked / TV remote missing">
-        </div>
-        <button class="btn btn-primary" id="addCommonIssueBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Departments</h3>
-      <p class="settings-hint">Who a job can be logged on behalf of — Housekeeping's own reports and Fire &amp; Security Walk findings are tagged automatically; this list is for the "Reported by" picker when Maintenance logs something for another department (e.g. a call from Reception).</p>
-      <div class="tag-list" id="departmentTagList"></div>
-      <div class="row2">
-        <div class="field" style="margin-bottom:0;">
-          <input id="s_newDepartment" type="text" placeholder="e.g. Reception / Night Team / Duty Manager">
-        </div>
-        <button class="btn btn-primary" id="addDepartmentBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Walk Faults</h3>
-      <p class="settings-hint">The fault checklist offered floor-by-floor during a Fire &amp; Security Walk. Most faults apply to every floor — restrict one to a single floor for something you can only actually check from there (e.g. an AC panel's fault code).</p>
-      <div class="tag-list" id="walkFaultTagList"></div>
-      <div class="field">
-        <input id="s_newWalkFault" type="text" placeholder="e.g. Corridor lighting / P10 fault / Fire door">
-      </div>
-      <div class="row2">
-        <div class="field" style="margin-bottom:0;">
-          <select id="s_newWalkFaultArea">
-            <option value="">All floors</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="addWalkFaultBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
-      </div>
-      <label class="settings-checkbox-row">
-        <input type="checkbox" id="s_newWalkFaultWholeHotel">
-        Its room picker should offer every room in the hotel, not just
-        the floor it's checked from (for something checked in one place
-        but affecting rooms elsewhere, like a centralized panel)
-      </label>
-    </div>
-
-    <div class="settings-section">
-      <h3>Rooms</h3>
-      <div id="roomList"></div>
-      <div class="row2">
-        <div class="field" style="margin-bottom:0;">
-          <input id="s_newRoomNum" type="text" placeholder="Room no.">
-        </div>
-        <div class="field" style="margin-bottom:0;">
-          <select id="s_newRoomArea">
-            <option value="">Select area…</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
-      </div>
-
-      <p class="settings-hint">Adding a lot of rooms at once? Paste a
-      list below, one room per line, as <code>Room number, Area</code>
-      — e.g. <code>901, 9th Floor</code>. Areas that don't exist yet are
-      created automatically. Safe to run more than once: a room number
-      already on the list gets updated (e.g. if its area changed), not
-      duplicated, and anything not in your pasted list is left alone.</p>
-      <textarea id="s_bulkRooms" rows="6" placeholder="901, 9th Floor&#10;902, 9th Floor&#10;9th Floor Lift Lobby, 9th Floor"></textarea>
-      <div class="row2">
-        <button class="btn btn-primary" id="bulkImportRoomsBtn" style="flex:1;">Import rooms</button>
-      </div>
-    </div>
-
+    <div class="home-tiles" id="settingsTiles"></div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="closeSettingsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsSiteBackdrop">
+  <div class="sheet">
+    <h2>Site</h2>
+    <div class="field">
+      <label>Hotel / site name</label>
+      <input id="s_siteName" type="text" placeholder="e.g. Leonardo Hotel Sheffield">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsSiteBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsAreasBackdrop">
+  <div class="sheet">
+    <h2>Areas</h2>
+    <div class="tag-list" id="areaTagList"></div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <input id="s_newArea" type="text" placeholder="Add area, e.g. Bar / Kitchen / 4th Floor">
+      </div>
+      <button class="btn btn-primary" id="addAreaBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsAreasBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsCommonIssuesBackdrop">
+  <div class="sheet">
+    <h2>Common Issues</h2>
+    <div class="tag-list" id="commonIssueTagList"></div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <input id="s_newCommonIssue" type="text" placeholder="e.g. Bath plug missing / Sink blocked / TV remote missing">
+      </div>
+      <button class="btn btn-primary" id="addCommonIssueBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsCommonIssuesBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsDepartmentsBackdrop">
+  <div class="sheet">
+    <h2>Departments</h2>
+    <p class="settings-hint">Who a job can be logged on behalf of — Housekeeping's own reports and Fire &amp; Security Walk findings are tagged automatically; this list is for the "Reported by" picker when Maintenance logs something for another department (e.g. a call from Reception).</p>
+    <div class="tag-list" id="departmentTagList"></div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <input id="s_newDepartment" type="text" placeholder="e.g. Reception / Night Team / Duty Manager">
+      </div>
+      <button class="btn btn-primary" id="addDepartmentBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsDepartmentsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsWalkFaultsBackdrop">
+  <div class="sheet">
+    <h2>Walk Faults</h2>
+    <p class="settings-hint">The fault checklist offered floor-by-floor during a Fire &amp; Security Walk. Most faults apply to every floor — restrict one to a single floor for something you can only actually check from there (e.g. an AC panel's fault code).</p>
+    <div class="tag-list" id="walkFaultTagList"></div>
+    <div class="field">
+      <input id="s_newWalkFault" type="text" placeholder="e.g. Corridor lighting / P10 fault / Fire door">
+    </div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <select id="s_newWalkFaultArea">
+          <option value="">All floors</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="addWalkFaultBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+    <label class="settings-checkbox-row">
+      <input type="checkbox" id="s_newWalkFaultWholeHotel">
+      Its room picker should offer every room in the hotel, not just
+      the floor it's checked from (for something checked in one place
+      but affecting rooms elsewhere, like a centralized panel)
+    </label>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsWalkFaultsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="settingsRoomsBackdrop">
+  <div class="sheet">
+    <h2>Rooms</h2>
+    <div id="roomList"></div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <input id="s_newRoomNum" type="text" placeholder="Room no.">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <select id="s_newRoomArea">
+          <option value="">Select area…</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+
+    <p class="settings-hint">Adding a lot of rooms at once? Paste a
+    list below, one room per line, as <code>Room number, Area</code>
+    — e.g. <code>901, 9th Floor</code>. Areas that don't exist yet are
+    created automatically. Safe to run more than once: a room number
+    already on the list gets updated (e.g. if its area changed), not
+    duplicated, and anything not in your pasted list is left alone.</p>
+    <textarea id="s_bulkRooms" rows="6" placeholder="901, 9th Floor&#10;902, 9th Floor&#10;9th Floor Lift Lobby, 9th Floor"></textarea>
+    <div class="row2">
+      <button class="btn btn-primary" id="bulkImportRoomsBtn" style="flex:1;">Import rooms</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsRoomsBtn">Close</button>
     </div>
   </div>
 </div>
@@ -611,10 +644,12 @@
         a small confirmation before it's removed. The job disappears
         from the list, but the reason is kept permanently, just not
         visible anywhere in the app yet.</li>
-        <li>⚙ <strong>Settings</strong> manages: site name, Areas
-        (floors/zones), Common Issues (quick-pick shortcuts),
-        Departments (who a job can be "Reported by"), Walk Faults (the
-        walk checklist), and Rooms.</li>
+        <li>⚙ <strong>Settings</strong> is its own tile screen — Site
+        name, Areas (floors/zones), Common Issues (quick-pick
+        shortcuts), Departments (who a job can be "Reported by"), Walk
+        Faults (the walk checklist), and Rooms. Tap a tile to open that
+        section; Close on it goes back to the Settings tiles, not out
+        of Settings entirely.</li>
         <li>Roles and PINs are set up separately via the Firebase
         console, not in the app.</li>
         <li><strong>PPM (Planned Preventative Maintenance)</strong> —
@@ -657,7 +692,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.35"></script>
-<script src="app.js?v=0.1.35"></script>
+<script src="db.js?v=0.1.36"></script>
+<script src="app.js?v=0.1.36"></script>
 </body>
 </html>

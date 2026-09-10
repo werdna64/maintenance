@@ -191,6 +191,9 @@ header h1{
   display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;
   padding:16px 14px;
 }
+/* Settings reuses the Home tile grid inside a sheet, which already has
+   its own side padding — drop the tiles' own so it isn't doubled up. */
+.sheet .home-tiles{padding:2px 0 4px;}
 .home-tile{
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:9px; background:#fff; border:1.5px solid var(--line); border-radius:16px;

@@ -204,6 +204,10 @@ working with no signal once it's loaded once.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
+  Settings itself is a tile screen (Site, Areas, Common Issues,
+  Departments, Walk Faults, Rooms) rather than one long scrolling
+  page — tap a tile to open that section, Close returns to the tile
+  screen rather than out of Settings entirely.
 - The main list defaults to the **Active** filter — everything except
   Done jobs — so it stays a list of what's actually outstanding instead
   of accumulating every completed job forever. Tap **All** to see

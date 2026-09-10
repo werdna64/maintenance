@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.35';
+const APP_VERSION = '0.1.36';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1637,13 +1637,48 @@ async function handleDeletePpmTask(){
 
 // ---------------- settings sheet (maintenance only) ----------------
 
+// Settings itself is a Home-style tile screen (same pattern as the
+// main Home screen) rather than one long scrolling sheet — each tile
+// opens its own section as a sheet stacked on top, closed back to this
+// tile screen rather than out of Settings entirely.
+const SETTINGS_TILES = [
+  { id: 'settingsSiteBackdrop', label: 'Site',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`,
+    onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; } },
+  { id: 'settingsAreasBackdrop', label: 'Areas',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`,
+    onOpen: renderAreaTags },
+  { id: 'settingsCommonIssuesBackdrop', label: 'Common Issues',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>`,
+    onOpen: renderCommonIssueTags },
+  { id: 'settingsDepartmentsBackdrop', label: 'Departments',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
+    onOpen: renderDepartmentTags },
+  { id: 'settingsWalkFaultsBackdrop', label: 'Walk Faults',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+    onOpen: renderWalkFaultTags },
+  { id: 'settingsRoomsBackdrop', label: 'Rooms',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`,
+    onOpen: renderRoomList }
+];
+
+function renderSettingsHome(){
+  const wrap = el('settingsTiles');
+  wrap.innerHTML = '';
+  SETTINGS_TILES.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'home-tile';
+    btn.innerHTML = `<span class="home-tile-icon">${t.icon}</span><span class="home-tile-label">${escapeHtml(t.label)}</span>`;
+    btn.addEventListener('click', ()=>{
+      t.onOpen();
+      el(t.id).classList.add('open');
+    });
+    wrap.appendChild(btn);
+  });
+}
+
 function openSettings(){
-  el('s_siteName').value = config.siteName || '';
-  renderAreaTags();
-  renderCommonIssueTags();
-  renderDepartmentTags();
-  renderWalkFaultTags();
-  renderRoomList();
+  renderSettingsHome();
   el('settingsBackdrop').classList.add('open');
 }
 function closeSettings(){
@@ -1903,11 +1938,35 @@ on('notifCloseBtn', 'click', closeNotifPanel);
 on('notifBackdrop', 'click', (e)=>{ if(e.target.id==='notifBackdrop') closeNotifPanel(); });
 
 on('settingsBtn', 'click', openSettings);
-on('closeSettingsBtn', 'click', async ()=>{
-  await handleSaveSiteName();
-  closeSettings();
-});
+on('closeSettingsBtn', 'click', closeSettings);
 on('settingsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
+
+// Each Settings tile's sheet just closes back to the Settings tile
+// screen underneath (same stacked-sheet pattern as everywhere else) —
+// Site additionally saves on close since it has no explicit Save
+// button of its own, just the one text field.
+async function closeSettingsSiteSheet(){
+  await handleSaveSiteName();
+  el('settingsSiteBackdrop').classList.remove('open');
+}
+on('closeSettingsSiteBtn', 'click', closeSettingsSiteSheet);
+on('settingsSiteBackdrop', 'click', (e)=>{ if(e.target.id==='settingsSiteBackdrop') closeSettingsSiteSheet(); });
+
+on('closeSettingsAreasBtn', 'click', ()=> el('settingsAreasBackdrop').classList.remove('open'));
+on('settingsAreasBackdrop', 'click', (e)=>{ if(e.target.id==='settingsAreasBackdrop') el('settingsAreasBackdrop').classList.remove('open'); });
+
+on('closeSettingsCommonIssuesBtn', 'click', ()=> el('settingsCommonIssuesBackdrop').classList.remove('open'));
+on('settingsCommonIssuesBackdrop', 'click', (e)=>{ if(e.target.id==='settingsCommonIssuesBackdrop') el('settingsCommonIssuesBackdrop').classList.remove('open'); });
+
+on('closeSettingsDepartmentsBtn', 'click', ()=> el('settingsDepartmentsBackdrop').classList.remove('open'));
+on('settingsDepartmentsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsDepartmentsBackdrop') el('settingsDepartmentsBackdrop').classList.remove('open'); });
+
+on('closeSettingsWalkFaultsBtn', 'click', ()=> el('settingsWalkFaultsBackdrop').classList.remove('open'));
+on('settingsWalkFaultsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsWalkFaultsBackdrop') el('settingsWalkFaultsBackdrop').classList.remove('open'); });
+
+on('closeSettingsRoomsBtn', 'click', ()=> el('settingsRoomsBackdrop').classList.remove('open'));
+on('settingsRoomsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsRoomsBackdrop') el('settingsRoomsBackdrop').classList.remove('open'); });
+
 on('addAreaBtn', 'click', handleAddArea);
 on('addCommonIssueBtn', 'click', handleAddCommonIssue);
 on('addDepartmentBtn', 'click', handleAddDepartment);
