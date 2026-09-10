@@ -354,7 +354,16 @@ about two different things.
 ⚙ Settings → **Walk Faults** is the editable checklist offered on each
 floor — seeded with the common ones (Corridor lighting, P10 fault, Fire
 door, Fire extinguisher, Emergency lighting, Exit sign, Other), edit it
-to match what this hotel's walks actually check for.
+to match what this hotel's walks actually check for. Most faults
+belong on every floor, which is the default when you add one — but a
+fault can be restricted to a single floor for something you can only
+actually observe there (e.g. an AC control panel's P10 error code,
+only visible from wherever that panel physically is), so it won't show
+as an option — or need a room decision — anywhere else. A restricted
+fault can also have its room picker widened to every room in the
+hotel rather than just the floor it's checked from, for exactly that
+kind of case: the panel is in one place, but the fault it's reporting
+could be about a unit on any floor.
 
 **Walk History** — the clock icon next to it opens a report of every
 walk ever completed, newest first, grouped by day — only the most recent

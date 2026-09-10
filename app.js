@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.32';
+const APP_VERSION = '0.1.33';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -374,6 +374,14 @@ function renderAreaSelects(){
   if((config.areas||[]).includes(currentReportArea)) el('r_area').value = currentReportArea;
   if((config.areas||[]).includes(currentPpmArea)) el('p_area').value = currentPpmArea;
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
+
+  // Walk fault restriction is optional — "All floors" (no restriction)
+  // is the default and first option, unlike the pickers above where a
+  // real area must be chosen.
+  const currentWalkFaultArea = el('s_newWalkFaultArea').value;
+  el('s_newWalkFaultArea').innerHTML = `<option value="">All floors</option>` +
+    (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  if((config.areas||[]).includes(currentWalkFaultArea)) el('s_newWalkFaultArea').value = currentWalkFaultArea;
 }
 
 function renderIssuePresetSelects(){
@@ -954,6 +962,26 @@ let walkIndex = 0;
 let walkData = {}; // { [area]: { faults: Map<issue, room>, note: string, completedAt: string|null } }
 let walkStartedAt = null;
 
+// A walk fault is normally just its name (a plain string) and applies
+// to every floor, with its room picker scoped to that floor — the
+// common case, and how every fault worked before per-floor
+// restriction existed. A fault tied to one specific floor (e.g. a P10
+// error code only visible on the 6th floor's AC panel) is instead
+// {name, areas: [floor], wholeHotelRooms}: `areas` limits which
+// floor(s) offer it as an option at all, and `wholeHotelRooms` — for
+// when the thing being checked in one place can actually affect a
+// room anywhere — widens its room picker to every room in the hotel
+// instead of just the floor it's checked from.
+function walkFaultName(f){ return typeof f === 'string' ? f : f.name; }
+function walkFaultAreas(f){ return (typeof f === 'string' || !f.areas || !f.areas.length) ? null : f.areas; }
+function walkFaultWholeHotel(f){ return typeof f === 'string' ? false : !!f.wholeHotelRooms; }
+function walkFaultsForArea(area){
+  return (config.walkFaults||[]).filter(f=>{
+    const areas = walkFaultAreas(f);
+    return !areas || areas.includes(area);
+  });
+}
+
 // Walk order: floors highest-to-lowest (9th Floor down to 1st, however
 // they're named — first number found in the area name), then any
 // non-floor areas (Bar, Kitchen, Reception, ...) after, in whatever
@@ -998,8 +1026,22 @@ function renderWalkStep(){
   const defaultRoom = `${area} Corridor`;
   const areaRooms = rooms.filter(r => r.area === area)
     .sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
-  const roomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
+  const floorRoomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
     areaRooms.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('');
+
+  // A whole-hotel fault (e.g. P10, checked from the 6th floor panel but
+  // possibly about a unit on any floor) offers every room, grouped by
+  // area, instead of just this floor's — built once per render since
+  // it doesn't depend on which floor is being walked.
+  const hotelRoomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
+    walkAreaOrder(config.areas||[]).map(a=>{
+      const areaRoomList = rooms.filter(r=>r.area===a)
+        .sort((x,y)=> x.number.localeCompare(y.number, undefined, {numeric:true}));
+      if(!areaRoomList.length) return '';
+      return `<optgroup label="${escapeHtml(a)}">` +
+        areaRoomList.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('') +
+        `</optgroup>`;
+    }).join('');
 
   // Each fault's room select is built once per render and toggled via
   // direct DOM manipulation (not a full re-render on every tap) — a
@@ -1007,29 +1049,30 @@ function renderWalkStep(){
   // below, since that's only saved back to walkData on Back/Next.
   const wrap = el('walkFaultChips');
   wrap.innerHTML = '';
-  (config.walkFaults||[]).forEach(f=>{
+  walkFaultsForArea(area).forEach(f=>{
+    const name = walkFaultName(f);
     const row = document.createElement('div');
     row.className = 'walk-fault-row';
 
     const chip = document.createElement('div');
-    chip.className = 'chip' + (data.faults.has(f) ? ' active' : '');
-    chip.textContent = f;
+    chip.className = 'chip' + (data.faults.has(name) ? ' active' : '');
+    chip.textContent = name;
 
     const select = document.createElement('select');
     select.className = 'walk-fault-room';
-    select.innerHTML = roomOptionsHtml;
-    select.value = data.faults.get(f) || defaultRoom;
-    select.style.display = data.faults.has(f) ? '' : 'none';
+    select.innerHTML = walkFaultWholeHotel(f) ? hotelRoomOptionsHtml : floorRoomOptionsHtml;
+    select.value = data.faults.get(name) || defaultRoom;
+    select.style.display = data.faults.has(name) ? '' : 'none';
     select.addEventListener('click', e => e.stopPropagation());
-    select.addEventListener('change', ()=>{ data.faults.set(f, select.value); });
+    select.addEventListener('change', ()=>{ data.faults.set(name, select.value); });
 
     chip.addEventListener('click', ()=>{
-      if(data.faults.has(f)){
-        data.faults.delete(f);
+      if(data.faults.has(name)){
+        data.faults.delete(name);
         chip.classList.remove('active');
         select.style.display = 'none';
       } else {
-        data.faults.set(f, defaultRoom);
+        data.faults.set(name, defaultRoom);
         chip.classList.add('active');
         select.value = defaultRoom;
         select.style.display = '';
@@ -1562,9 +1605,14 @@ function renderWalkFaultTags(){
   const wrap = el('walkFaultTagList');
   wrap.innerHTML = '';
   (config.walkFaults||[]).forEach(f=>{
+    const areas = walkFaultAreas(f);
+    const detailParts = [];
+    if(areas) detailParts.push(areas.join(', '));
+    if(walkFaultWholeHotel(f)) detailParts.push('any room');
+    const detail = detailParts.length ? ` <span class="tag-detail">(${escapeHtml(detailParts.join(' · '))})</span>` : '';
     const tag = document.createElement('div');
     tag.className = 'tag';
-    tag.innerHTML = `<span>${escapeHtml(f)}</span><button data-fault="${escapeHtml(f)}">×</button>`;
+    tag.innerHTML = `<span>${escapeHtml(walkFaultName(f))}${detail}</span><button>×</button>`;
     tag.querySelector('button').addEventListener('click', async ()=>{
       config.walkFaults = config.walkFaults.filter(x=>x!==f);
       await DB.setConfig(config);
@@ -1624,11 +1672,23 @@ async function handleAddDepartment(){
 async function handleAddWalkFault(){
   const val = el('s_newWalkFault').value.trim();
   if(!val) return;
-  if(!(config.walkFaults||[]).includes(val)){
-    config.walkFaults = [...(config.walkFaults||[]), val];
-    await DB.setConfig(config);
+  const restrictArea = el('s_newWalkFaultArea').value;
+  const wholeHotel = el('s_newWalkFaultWholeHotel').checked;
+  if((config.walkFaults||[]).some(f=>walkFaultName(f)===val)){
+    toast('That fault is already on the list');
+    return;
   }
+  // Keep the common case (applies everywhere, room picker scoped to
+  // that floor) as a plain string — only faults with a restriction
+  // need the fuller {name, areas, wholeHotelRooms} shape.
+  const entry = (restrictArea || wholeHotel)
+    ? { name: val, areas: restrictArea ? [restrictArea] : [], wholeHotelRooms: wholeHotel }
+    : val;
+  config.walkFaults = [...(config.walkFaults||[]), entry];
+  await DB.setConfig(config);
   el('s_newWalkFault').value = '';
+  el('s_newWalkFaultArea').value = '';
+  el('s_newWalkFaultWholeHotel').checked = false;
 }
 
 async function handleAddRoom(){

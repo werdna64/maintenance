@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.32">
+<link rel="stylesheet" href="style.css?v=0.1.33">
 </head>
 <body>
 
@@ -429,14 +429,25 @@
 
     <div class="settings-section">
       <h3>Walk Faults</h3>
-      <p class="settings-hint">The fault checklist offered floor-by-floor during a Fire &amp; Security Walk.</p>
+      <p class="settings-hint">The fault checklist offered floor-by-floor during a Fire &amp; Security Walk. Most faults apply to every floor — restrict one to a single floor for something you can only actually check from there (e.g. an AC panel's fault code).</p>
       <div class="tag-list" id="walkFaultTagList"></div>
+      <div class="field">
+        <input id="s_newWalkFault" type="text" placeholder="e.g. Corridor lighting / P10 fault / Fire door">
+      </div>
       <div class="row2">
         <div class="field" style="margin-bottom:0;">
-          <input id="s_newWalkFault" type="text" placeholder="e.g. Corridor lighting / P10 fault / Fire door">
+          <select id="s_newWalkFaultArea">
+            <option value="">All floors</option>
+          </select>
         </div>
         <button class="btn btn-primary" id="addWalkFaultBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
       </div>
+      <label class="settings-checkbox-row">
+        <input type="checkbox" id="s_newWalkFaultWholeHotel">
+        Its room picker should offer every room in the hotel, not just
+        the floor it's checked from (for something checked in one place
+        but affecting rooms elsewhere, like a centralized panel)
+      </label>
     </div>
 
     <div class="settings-section">
@@ -557,12 +568,14 @@
         <li>You're walked floor by floor, highest to lowest, then any
         other areas (Bar, Kitchen, etc.) after.</li>
         <li>On each floor: tap any faults found — leave them all
-        untapped if it's all in order. Tapping one reveals a room picker
-        next to it, defaulting to that floor's general corridor room but
-        switchable to the actual room a fault belongs to (e.g. an AC
-        panel's P10 fault, or the nearest room to a corridor/emergency
-        light) — each fault keeps its own room. Add a note if useful,
-        then <strong>Next floor</strong>.</li>
+        untapped if it's all in order. The checklist can differ by
+        floor (e.g. an AC panel's P10 fault only shows up on the floor
+        that panel's actually on). Tapping a fault reveals a room
+        picker next to it, defaulting to that floor's general corridor
+        room but switchable to the actual room it belongs to (or the
+        nearest room, for something like corridor/emergency lighting)
+        — each fault keeps its own room. Add a note if useful, then
+        <strong>Next floor</strong>.</li>
         <li>Nothing saves until you tap <strong>Finish walk</strong> on
         the last floor. <strong>Cancel walk</strong> at any point throws
         the whole thing away — nothing half-logged.</li>
@@ -642,7 +655,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.32"></script>
-<script src="app.js?v=0.1.32"></script>
+<script src="db.js?v=0.1.33"></script>
+<script src="app.js?v=0.1.33"></script>
 </body>
 </html>
