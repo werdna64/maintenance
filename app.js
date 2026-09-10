@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.34';
+const APP_VERSION = '0.1.35';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1258,9 +1258,16 @@ async function finishWalk(){
       await createWalkJob(room, 'Walk note', floor.note);
       newCount++;
     } else {
-      for(const {issue, rooms} of floor.faults){
-        for(const room of rooms){
-          await ensureRoomExists(room, floor.area);
+      for(const {issue, rooms: faultRooms} of floor.faults){
+        for(const room of faultRooms){
+          // A whole-hotel fault's room can belong to a different floor
+          // than the one actually being walked (that's the point) — if
+          // the room already exists, keep its own area rather than
+          // stamping it with whichever floor this walk step is on;
+          // only a genuinely new room (the {Floor} Corridor catch-all)
+          // should be created against the floor being walked.
+          const knownRoom = rooms.find(r => r.number === room);
+          await ensureRoomExists(room, knownRoom ? knownRoom.area : floor.area);
           const isNew = await logWalkFinding(room, issue, floor.note);
           if(isNew) newCount++; else reconfirmedCount++;
         }
