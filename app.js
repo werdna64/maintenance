@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.40';
+const APP_VERSION = '0.1.41';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1653,7 +1653,7 @@ let reportsPeriod = '30';
 
 function reportPeriodCutoff(period){
   if(period === 'all') return null;
-  const days = period === '90' ? 90 : 30;
+  const days = { '7': 7, '30': 30, '90': 90 }[period] || 30;
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString();

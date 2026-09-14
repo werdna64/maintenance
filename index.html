@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.40">
+<link rel="stylesheet" href="style.css?v=0.1.41">
 </head>
 <body>
 
@@ -382,6 +382,7 @@
       <div class="chip" data-tab="issues">By Issue</div>
     </div>
     <div class="chips" id="reportsPeriodChips" style="margin-top:8px;">
+      <div class="chip" data-period="7">Last 7 days</div>
       <div class="chip active" data-period="30">Last 30 days</div>
       <div class="chip" data-period="90">Last 90 days</div>
       <div class="chip" data-period="all">All time</div>
@@ -753,8 +754,8 @@
         the app open, so a task due while it's closed won't spawn its
         job until the next time someone opens it.</li>
         <li><strong>Reports</strong> — the bar-chart tile on Home —
-        has three views. <strong>Summary</strong> (with a 30/90 day/all
-        time picker): outstanding jobs right now, logged/closed counts
+        has three views. <strong>Summary</strong> (with a 7/30/90
+        day/all time picker): outstanding jobs right now, logged/closed counts
         for the period, average time to close, walk and PPM stats, and
         a jobs-by-area and jobs-by-department breakdown.
         <strong>Faults by Room</strong> and <strong>By Issue</strong>
@@ -793,7 +794,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.40"></script>
-<script src="app.js?v=0.1.40"></script>
+<script src="db.js?v=0.1.41"></script>
+<script src="app.js?v=0.1.41"></script>
 </body>
 </html>

@@ -442,7 +442,7 @@ here is computed on the fly from jobs/walks/PPM data already loaded in
 the app, nothing extra synced from Firestore, and it's screen-only for
 now (no print or export/CSV yet, might follow later if needed).
 
-**Summary** — a period picker (last 30 days / last 90 days / all time)
+**Summary** — a period picker (last 7 / 30 / 90 days / all time)
 plus: how many jobs are outstanding right now (not period-scoped, that's
 always current), how many were logged and closed within the chosen
 period, average time from logged to closed, walks completed and how
