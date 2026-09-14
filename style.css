@@ -140,10 +140,11 @@ header h1{
 }
 .report-stat{
   background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:12px 13px;
+  cursor:pointer;
 }
 .report-stat-value{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:var(--plaque);}
 .report-stat-label{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; margin-top:2px;}
-.report-bar-row{margin-bottom:10px;}
+.report-bar-row{margin-bottom:10px; cursor:pointer;}
 .report-bar-row-top{display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; margin-bottom:4px;}
 .report-bar-row-label{color:var(--ink); font-weight:600;}
 .report-bar-row-count{font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); font-size:11.5px;}
@@ -152,7 +153,7 @@ header h1{
 
 .fault-room-row{
   background:#fff; border:1.5px solid var(--line); border-radius:10px;
-  padding:9px 11px; margin-bottom:6px;
+  padding:9px 11px; margin-bottom:6px; cursor:pointer;
 }
 .fault-room-top{display:flex; justify-content:space-between; align-items:center; font-size:13.5px; font-weight:600; color:var(--ink);}
 .fault-room-count{
@@ -165,6 +166,15 @@ header h1{
   background:var(--progress-bg); color:var(--progress); font-size:11px; font-weight:600;
   border-radius:999px; padding:3px 9px;
 }
+
+.drill-job-row{
+  background:#fff; border:1.5px solid var(--line); border-radius:10px;
+  padding:9px 11px; margin-bottom:6px; cursor:pointer;
+}
+.drill-job-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.drill-job-room{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px; color:var(--ink);}
+.drill-job-issue{font-size:12.5px; color:var(--ink); margin-top:3px;}
+.drill-job-meta{font-size:11px; color:var(--ink-soft); margin-top:3px;}
 
 /* ---------------- update banner ---------------- */
 .update-banner{

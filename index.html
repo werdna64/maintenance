@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.41">
+<link rel="stylesheet" href="style.css?v=0.1.42">
 </head>
 <body>
 
@@ -455,6 +455,19 @@
   </div>
 </div>
 
+<!-- Report drill-down: the actual jobs behind whichever report item
+     was tapped — a bar, a room, an issue, or a stat tile. Read-only
+     rows; tapping one opens the real job sheet for full detail. -->
+<div class="sheet-backdrop" id="reportDrillBackdrop">
+  <div class="sheet">
+    <h2 id="reportDrillTitle">Jobs</h2>
+    <div id="reportDrillList"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="reportDrillCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Notifications panel: what's new since you last looked -->
 <div class="sheet-backdrop" id="notifBackdrop">
   <div class="sheet">
@@ -766,7 +779,11 @@
         recurred there called out as its own tag. By Issue: the same
         cut the other way — every issue that's recurred anywhere in the
         hotel, how many different rooms it's hit, and its average time
-        to close. Screen-only for now, nothing to print or export yet.</li>
+        to close. Every stat tile, bar, room and issue is tappable —
+        drills into the actual jobs behind that number, and tapping one
+        of those opens it properly (editable for Maintenance, view-only
+        for Management). Screen-only for now, nothing to print or
+        export yet.</li>
       </ul>
     </div>
 
@@ -794,7 +811,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.41"></script>
-<script src="app.js?v=0.1.41"></script>
+<script src="db.js?v=0.1.42"></script>
+<script src="app.js?v=0.1.42"></script>
 </body>
 </html>

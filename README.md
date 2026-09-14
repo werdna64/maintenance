@@ -472,6 +472,14 @@ spotting a hotel-wide pattern (e.g. the same fault happening in lots
 of different rooms) that Faults by Room, being organized per-room,
 wouldn't surface on its own.
 
+**Everything in Reports drills down.** A stat tile, a bar in the
+area/department breakdown, a room, an issue — tap any of them to see
+the actual jobs behind that number, then tap one of those to open it
+properly (full edit for Maintenance, view-only for Management, same as
+opening it from the main job list). The Walks and PPM stat tiles drill
+into Walk History and the PPM list themselves rather than a jobs view,
+since those aren't jobs.
+
 ## Adding someone new, or rotating/revoking a PIN
 
 - **New person**: repeat steps 3–4 above for them — one Firebase Auth

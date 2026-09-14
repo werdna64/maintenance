@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.41';
+const APP_VERSION = '0.1.42';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1686,6 +1686,7 @@ function computeSummaryReport(period){
   const walksWithIssues = walksInPeriod.filter(w => (w.floors||[]).some(f=>!f.allClear));
 
   return {
+    loggedInPeriod, closedInPeriod, openNow,
     loggedCount: loggedInPeriod.length,
     closedCount: closedInPeriod.length,
     openNowCount: openNow.length,
@@ -1738,12 +1739,49 @@ function computeFaultsByIssue(){
   return byIssue;
 }
 
-function renderReportBarList(counts, wrap){
+// Tapping any report item — a bar row, a room, an issue, a stat tile —
+// drills into the actual jobs behind the number, reusing the existing
+// job sheet for full detail rather than building a second read-only
+// view of the same data.
+function openReportDrilldown(title, jobList){
+  el('reportDrillTitle').textContent = title;
+  const wrap = el('reportDrillList');
+  const sorted = [...jobList].sort((a,b)=> (b.dateLogged||'').localeCompare(a.dateLogged||''));
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No jobs</div>`;
+  } else {
+    wrap.innerHTML = sorted.map(j=>{
+      const statusClass = 'status-' + j.status.replace(/ /g,'-');
+      return `
+        <div class="drill-job-row" data-id="${j.id}">
+          <div class="drill-job-top">
+            <span class="drill-job-room">${escapeHtml(j.room)}</span>
+            <span class="status-badge ${statusClass}">${j.status}</span>
+          </div>
+          <div class="drill-job-issue">${escapeHtml(j.issue || '(no description)')}</div>
+          <div class="drill-job-meta">${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>
+        </div>
+      `;
+    }).join('');
+    wrap.querySelectorAll('.drill-job-row').forEach(row=>{
+      row.addEventListener('click', ()=>{
+        const job = jobs.find(j=>j.id === row.dataset.id);
+        if(job) openJobSheet(job);
+      });
+    });
+  }
+  el('reportDrillBackdrop').classList.add('open');
+}
+function closeReportDrilldown(){
+  el('reportDrillBackdrop').classList.remove('open');
+}
+
+function renderReportBarList(counts, wrap, onRowClick){
   const entries = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
   if(entries.length === 0){ wrap.innerHTML = `<div class="notif-empty">Nothing in this period</div>`; return; }
   const max = entries[0][1];
   wrap.innerHTML = entries.map(([label,count])=>`
-    <div class="report-bar-row">
+    <div class="report-bar-row" data-label="${escapeHtml(label)}">
       <div class="report-bar-row-top">
         <span class="report-bar-row-label">${escapeHtml(label)}</span>
         <span class="report-bar-row-count">${count}</span>
@@ -1751,6 +1789,11 @@ function renderReportBarList(counts, wrap){
       <div class="report-bar-track"><div class="report-bar-fill" style="width:${Math.max(4, Math.round(count/max*100))}%"></div></div>
     </div>
   `).join('');
+  if(onRowClick){
+    wrap.querySelectorAll('.report-bar-row').forEach(row=>{
+      row.addEventListener('click', ()=> onRowClick(row.dataset.label));
+    });
+  }
 }
 
 function renderReportsSummary(){
@@ -1763,8 +1806,20 @@ function renderReportsSummary(){
   el('reportStatWalksIssues').textContent = s.walksWithIssuesCount;
   el('reportStatPpmOverdue').textContent = s.ppmOverdue;
   el('reportStatPpmSoon').textContent = s.ppmSoon;
-  renderReportBarList(s.byArea, el('reportByArea'));
-  renderReportBarList(s.bySource, el('reportBySource'));
+
+  el('reportStatOpen').onclick = ()=> openReportDrilldown('Outstanding now', s.openNow);
+  el('reportStatLogged').onclick = ()=> openReportDrilldown('Logged this period', s.loggedInPeriod);
+  el('reportStatClosed').onclick = ()=> openReportDrilldown('Closed this period', s.closedInPeriod);
+  el('reportStatAvgClose').onclick = ()=> openReportDrilldown('Closed this period', s.closedInPeriod);
+  el('reportStatWalks').onclick = openWalkHistory;
+  el('reportStatWalksIssues').onclick = openWalkHistory;
+  el('reportStatPpmOverdue').onclick = openPpmList;
+  el('reportStatPpmSoon').onclick = openPpmList;
+
+  renderReportBarList(s.byArea, el('reportByArea'), (area)=>
+    openReportDrilldown(area, s.loggedInPeriod.filter(j=>roomArea(j.room)===area)));
+  renderReportBarList(s.bySource, el('reportBySource'), (source)=>
+    openReportDrilldown(source, s.loggedInPeriod.filter(j=>(j.source||'Unknown')===source)));
 }
 
 function renderReportsFaults(){
@@ -1800,7 +1855,7 @@ function renderReportsFaults(){
           const recurring = Object.values(r.issues).filter(i=>i.count >= 2).sort((a,b)=>b.count-a.count);
           const avgClose = r.closedCount ? fmtDuration(r.closedMsTotal / r.closedCount) : null;
           return `
-            <div class="fault-room-row">
+            <div class="fault-room-row" data-room="${escapeHtml(r.room)}">
               <div class="fault-room-top">
                 <span>${escapeHtml(r.room)}</span>
                 <span class="fault-room-count">${r.total} job${r.total===1?'':'s'}</span>
@@ -1815,13 +1870,20 @@ function renderReportsFaults(){
       </details>
     `;
   }).join('');
+
+  wrap.querySelectorAll('.fault-room-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const room = row.dataset.room;
+      openReportDrilldown(room, jobs.filter(j=>j.room === room));
+    });
+  });
 }
 
 function renderReportsIssues(){
   const byIssue = computeFaultsByIssue();
-  const patterns = Object.values(byIssue)
-    .filter(i=>i.total >= 2)
-    .sort((a,b)=> b.total - a.total);
+  const patterns = Object.entries(byIssue)
+    .filter(([,i])=>i.total >= 2)
+    .sort((a,b)=> b[1].total - a[1].total);
 
   const wrap = el('reportIssuesList');
   if(patterns.length === 0){
@@ -1829,13 +1891,13 @@ function renderReportsIssues(){
     return;
   }
 
-  wrap.innerHTML = patterns.map(i=>{
+  wrap.innerHTML = patterns.map(([key,i])=>{
     const avgClose = i.closedCount ? fmtDuration(i.closedMsTotal / i.closedCount) : null;
     const roomCount = i.rooms.size;
     const metaParts = [`in ${roomCount} room${roomCount===1?'':'s'}`];
     if(avgClose) metaParts.push(`avg ${avgClose} to close`);
     return `
-      <div class="fault-room-row">
+      <div class="fault-room-row" data-issue-key="${escapeHtml(key)}">
         <div class="fault-room-top">
           <span>${escapeHtml(i.text)}</span>
           <span class="fault-room-count">${i.total} job${i.total===1?'':'s'}</span>
@@ -1844,6 +1906,14 @@ function renderReportsIssues(){
       </div>
     `;
   }).join('');
+
+  wrap.querySelectorAll('.fault-room-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const key = row.dataset.issueKey;
+      const matches = jobs.filter(j => (j.issue||'(no description)').trim().toLowerCase() === key);
+      openReportDrilldown(matches[0] ? (matches[0].issue || '(no description)') : key, matches);
+    });
+  });
 }
 
 function renderReports(){
@@ -2202,6 +2272,8 @@ on('ppmTaskBackdrop', 'click', (e)=>{ if(e.target.id==='ppmTaskBackdrop') closeP
 
 on('reportsCloseBtn', 'click', closeReports);
 on('reportsBackdrop', 'click', (e)=>{ if(e.target.id==='reportsBackdrop') closeReports(); });
+on('reportDrillCloseBtn', 'click', closeReportDrilldown);
+on('reportDrillBackdrop', 'click', (e)=>{ if(e.target.id==='reportDrillBackdrop') closeReportDrilldown(); });
 document.querySelectorAll('#reportsTabChips .chip').forEach(c=>{
   c.addEventListener('click', ()=>{ reportsTab = c.dataset.tab; renderReports(); });
 });
