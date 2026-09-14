@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.37';
+const APP_VERSION = '0.1.38';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -386,8 +386,9 @@ function renderAreaSelects(){
 }
 
 function renderIssuePresetSelects(){
+  const sorted = [...(config.commonIssues||[])].sort((a,b)=> a.localeCompare(b));
   const options = `<option value="">Other (type your own)…</option>` +
-    (config.commonIssues||[]).map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+    sorted.map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
   el('f_issuePreset').innerHTML = options;
   el('r_issuePreset').innerHTML = options;
 }
@@ -1705,7 +1706,7 @@ function renderAreaTags(){
 function renderCommonIssueTags(){
   const wrap = el('commonIssueTagList');
   wrap.innerHTML = '';
-  (config.commonIssues||[]).forEach(i=>{
+  [...(config.commonIssues||[])].sort((a,b)=> a.localeCompare(b)).forEach(i=>{
     const tag = document.createElement('div');
     tag.className = 'tag';
     tag.innerHTML = `<span>${escapeHtml(i)}</span><button data-issue="${escapeHtml(i)}">×</button>`;
