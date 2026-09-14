@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.39';
+const APP_VERSION = '0.1.40';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1704,14 +1704,38 @@ function computeFaultsByRoom(){
   const byRoom = {};
   jobs.forEach(j=>{
     if(!j.room) return;
-    if(!byRoom[j.room]) byRoom[j.room] = { area: roomArea(j.room), total: 0, issues: {} };
+    if(!byRoom[j.room]) byRoom[j.room] = { area: roomArea(j.room), total: 0, closedCount: 0, closedMsTotal: 0, issues: {} };
     const entry = byRoom[j.room];
     entry.total++;
+    if(j.status === 'Done' && j.dateClosed){
+      entry.closedCount++;
+      entry.closedMsTotal += (new Date(j.dateClosed) - new Date(j.dateLogged));
+    }
     const key = (j.issue||'(no description)').trim().toLowerCase();
     if(!entry.issues[key]) entry.issues[key] = { text: j.issue || '(no description)', count: 0 };
     entry.issues[key].count++;
   });
   return byRoom;
+}
+
+// Same all-time philosophy as Faults by Room, but cutting the other
+// way: which *kind* of problem recurs most across the whole hotel,
+// rather than which room. Only issues with 2+ jobs ever are worth
+// calling a pattern — a one-off isn't one.
+function computeFaultsByIssue(){
+  const byIssue = {};
+  jobs.forEach(j=>{
+    const key = (j.issue||'(no description)').trim().toLowerCase();
+    if(!byIssue[key]) byIssue[key] = { text: j.issue || '(no description)', total: 0, rooms: new Set(), closedCount: 0, closedMsTotal: 0 };
+    const entry = byIssue[key];
+    entry.total++;
+    if(j.room) entry.rooms.add(j.room);
+    if(j.status === 'Done' && j.dateClosed){
+      entry.closedCount++;
+      entry.closedMsTotal += (new Date(j.dateClosed) - new Date(j.dateLogged));
+    }
+  });
+  return byIssue;
 }
 
 function renderReportBarList(counts, wrap){
@@ -1774,12 +1798,14 @@ function renderReportsFaults(){
         <summary class="group-label"><span class="area-label">${escapeHtml(area)}</span><span class="group-count">${rooms.length}</span><div class="rule"></div></summary>
         ${rooms.map(r=>{
           const recurring = Object.values(r.issues).filter(i=>i.count >= 2).sort((a,b)=>b.count-a.count);
+          const avgClose = r.closedCount ? fmtDuration(r.closedMsTotal / r.closedCount) : null;
           return `
             <div class="fault-room-row">
               <div class="fault-room-top">
                 <span>${escapeHtml(r.room)}</span>
                 <span class="fault-room-count">${r.total} job${r.total===1?'':'s'}</span>
               </div>
+              ${avgClose ? `<div class="fault-room-meta">Avg ${avgClose} to close</div>` : ''}
               ${recurring.length ? `<div class="fault-room-issues">${recurring.map(i=>
                 `<span class="fault-issue-chip">${escapeHtml(i.text)} ×${i.count}</span>`
               ).join('')}</div>` : ''}
@@ -1791,9 +1817,39 @@ function renderReportsFaults(){
   }).join('');
 }
 
+function renderReportsIssues(){
+  const byIssue = computeFaultsByIssue();
+  const patterns = Object.values(byIssue)
+    .filter(i=>i.total >= 2)
+    .sort((a,b)=> b.total - a.total);
+
+  const wrap = el('reportIssuesList');
+  if(patterns.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No issue has come up 2+ times yet</div>`;
+    return;
+  }
+
+  wrap.innerHTML = patterns.map(i=>{
+    const avgClose = i.closedCount ? fmtDuration(i.closedMsTotal / i.closedCount) : null;
+    const roomCount = i.rooms.size;
+    const metaParts = [`in ${roomCount} room${roomCount===1?'':'s'}`];
+    if(avgClose) metaParts.push(`avg ${avgClose} to close`);
+    return `
+      <div class="fault-room-row">
+        <div class="fault-room-top">
+          <span>${escapeHtml(i.text)}</span>
+          <span class="fault-room-count">${i.total} job${i.total===1?'':'s'}</span>
+        </div>
+        <div class="fault-room-meta">${escapeHtml(metaParts.join(' · '))}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderReports(){
   el('reportsSummaryView').style.display = reportsTab === 'summary' ? '' : 'none';
   el('reportsFaultsView').style.display = reportsTab === 'faults' ? '' : 'none';
+  el('reportsIssuesView').style.display = reportsTab === 'issues' ? '' : 'none';
   el('reportsPeriodChips').style.display = reportsTab === 'summary' ? '' : 'none';
   document.querySelectorAll('#reportsTabChips .chip').forEach(c=>{
     c.classList.toggle('active', c.dataset.tab === reportsTab);
@@ -1801,7 +1857,9 @@ function renderReports(){
   document.querySelectorAll('#reportsPeriodChips .chip').forEach(c=>{
     c.classList.toggle('active', c.dataset.period === reportsPeriod);
   });
-  if(reportsTab === 'summary') renderReportsSummary(); else renderReportsFaults();
+  if(reportsTab === 'summary') renderReportsSummary();
+  else if(reportsTab === 'faults') renderReportsFaults();
+  else renderReportsIssues();
 }
 
 function openReports(){

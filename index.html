@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.39">
+<link rel="stylesheet" href="style.css?v=0.1.40">
 </head>
 <body>
 
@@ -379,6 +379,7 @@
     <div class="chips" id="reportsTabChips">
       <div class="chip active" data-tab="summary">Summary</div>
       <div class="chip" data-tab="faults">Faults by Room</div>
+      <div class="chip" data-tab="issues">By Issue</div>
     </div>
     <div class="chips" id="reportsPeriodChips" style="margin-top:8px;">
       <div class="chip active" data-period="30">Last 30 days</div>
@@ -437,6 +438,14 @@
       against them, grouped by floor — a repeated issue on the same
       room is called out below it.</p>
       <div id="reportFaultsList"></div>
+    </div>
+
+    <div id="reportsIssuesView" style="display:none;">
+      <p class="settings-hint">The same cut the other way round — every
+      issue that's come up 2 or more times anywhere in the hotel,
+      most frequent first, with how many different rooms it's affected
+      and the average time it's taken to close.</p>
+      <div id="reportIssuesList"></div>
     </div>
 
     <div class="sheet-actions">
@@ -744,16 +753,19 @@
         the app open, so a task due while it's closed won't spawn its
         job until the next time someone opens it.</li>
         <li><strong>Reports</strong> — the bar-chart tile on Home —
-        has two views. <strong>Summary</strong> (with a 30/90 day/all
+        has three views. <strong>Summary</strong> (with a 30/90 day/all
         time picker): outstanding jobs right now, logged/closed counts
         for the period, average time to close, walk and PPM stats, and
         a jobs-by-area and jobs-by-department breakdown.
-        <strong>Faults by Room</strong> is always all-time: every room
-        with 2+ jobs ever logged against it, grouped by floor, with any
-        exact-same issue that's recurred on that room called out as its
-        own tag — the quickest way to spot something worth actually
-        investigating rather than just fixing again. Screen-only for
-        now, nothing to print or export yet.</li>
+        <strong>Faults by Room</strong> and <strong>By Issue</strong>
+        are always all-time (a real pattern needs the full history, not
+        a rolling window) and only show something that's happened 2+
+        times. Faults by Room: every such room, grouped by floor, with
+        its average time to close and any exact-same issue that's
+        recurred there called out as its own tag. By Issue: the same
+        cut the other way — every issue that's recurred anywhere in the
+        hotel, how many different rooms it's hit, and its average time
+        to close. Screen-only for now, nothing to print or export yet.</li>
       </ul>
     </div>
 
@@ -781,7 +793,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.39"></script>
-<script src="app.js?v=0.1.39"></script>
+<script src="db.js?v=0.1.40"></script>
+<script src="app.js?v=0.1.40"></script>
 </body>
 </html>

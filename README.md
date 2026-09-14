@@ -451,14 +451,26 @@ overdue or due soon. Below that, a breakdown of jobs logged in the
 period by area and by department, as simple bar lists (longest bar =
 most jobs).
 
-**Faults by Room** — deliberately *not* period-scoped, since spotting a
-genuine pattern needs the full history rather than a rolling window.
-Every room with 2 or more jobs ever logged against it, grouped by
-floor, sorted by total job count within each floor. Where the *same*
-issue text has recurred on a room (2+ times), it's called out
-underneath as its own chip (e.g. "TV remote missing ×3") — that's the
-one worth actually investigating, versus a room that's just
-accumulated several unrelated one-off problems.
+**Faults by Room** and **By Issue** are the same underlying data cut
+two ways, both deliberately *not* period-scoped since spotting a
+genuine pattern needs the full history rather than a rolling window,
+and both only show something that's happened 2 or more times — a
+one-off isn't a pattern.
+
+Faults by Room: every room with 2+ jobs ever logged against it,
+grouped by floor, sorted by total job count within each floor, each
+with its average time to close. Where the *same* issue text has
+recurred on a room, it's called out underneath as its own chip (e.g.
+"TV remote missing ×3") — that's the one worth actually investigating,
+versus a room that's just accumulated several unrelated one-off
+problems.
+
+By Issue: the same cut the other way round — every issue that's come
+up 2+ times anywhere in the hotel, most frequent first, with how many
+different rooms it's affected and its average time to close. Good for
+spotting a hotel-wide pattern (e.g. the same fault happening in lots
+of different rooms) that Faults by Room, being organized per-room,
+wouldn't surface on its own.
 
 ## Adding someone new, or rotating/revoking a PIN
 
