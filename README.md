@@ -435,6 +435,31 @@ hand via **+ Add task**, using this hotel's actual inspection/contract
 dates and intervals rather than guessed ones, since getting a
 compliance schedule wrong is worse than not automating it at all.
 
+### Reports
+
+The bar-chart icon on Home (Maintenance and Management) — everything
+here is computed on the fly from jobs/walks/PPM data already loaded in
+the app, nothing extra synced from Firestore, and it's screen-only for
+now (no print or export/CSV yet, might follow later if needed).
+
+**Summary** — a period picker (last 30 days / last 90 days / all time)
+plus: how many jobs are outstanding right now (not period-scoped, that's
+always current), how many were logged and closed within the chosen
+period, average time from logged to closed, walks completed and how
+many had at least one issue, and how many PPM tasks are currently
+overdue or due soon. Below that, a breakdown of jobs logged in the
+period by area and by department, as simple bar lists (longest bar =
+most jobs).
+
+**Faults by Room** — deliberately *not* period-scoped, since spotting a
+genuine pattern needs the full history rather than a rolling window.
+Every room with 2 or more jobs ever logged against it, grouped by
+floor, sorted by total job count within each floor. Where the *same*
+issue text has recurred on a room (2+ times), it's called out
+underneath as its own chip (e.g. "TV remote missing ×3") — that's the
+one worth actually investigating, versus a room that's just
+accumulated several unrelated one-off problems.
+
 ## Adding someone new, or rotating/revoking a PIN
 
 - **New person**: repeat steps 3–4 above for them — one Firebase Auth

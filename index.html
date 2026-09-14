@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.38">
+<link rel="stylesheet" href="style.css?v=0.1.39">
 </head>
 <body>
 
@@ -369,6 +369,82 @@
   </div>
 </div>
 
+<!-- Reports: on-screen only for now (no print/export yet) — Summary
+     (period-scoped stats) and Faults by Room (all-time, highlights
+     rooms/issues that keep recurring). Built by renderReports() in
+     app.js from jobs/walks/ppmTasks already loaded client-side. -->
+<div class="sheet-backdrop" id="reportsBackdrop">
+  <div class="sheet">
+    <h2>Reports</h2>
+    <div class="chips" id="reportsTabChips">
+      <div class="chip active" data-tab="summary">Summary</div>
+      <div class="chip" data-tab="faults">Faults by Room</div>
+    </div>
+    <div class="chips" id="reportsPeriodChips" style="margin-top:8px;">
+      <div class="chip active" data-period="30">Last 30 days</div>
+      <div class="chip" data-period="90">Last 90 days</div>
+      <div class="chip" data-period="all">All time</div>
+    </div>
+
+    <div id="reportsSummaryView">
+      <div class="report-stats">
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatOpen">0</div>
+          <div class="report-stat-label">Outstanding now</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatLogged">0</div>
+          <div class="report-stat-label">Logged this period</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatClosed">0</div>
+          <div class="report-stat-label">Closed this period</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatAvgClose">—</div>
+          <div class="report-stat-label">Avg. time to close</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatWalks">0</div>
+          <div class="report-stat-label">Walks completed</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatWalksIssues">0</div>
+          <div class="report-stat-label">Walks with issues</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatPpmOverdue">0</div>
+          <div class="report-stat-label">PPM overdue</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-value" id="reportStatPpmSoon">0</div>
+          <div class="report-stat-label">PPM due soon</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Jobs by area</h3>
+        <div id="reportByArea"></div>
+      </div>
+      <div class="settings-section">
+        <h3>Jobs by department</h3>
+        <div id="reportBySource"></div>
+      </div>
+    </div>
+
+    <div id="reportsFaultsView" style="display:none;">
+      <p class="settings-hint">Rooms with 2 or more jobs ever logged
+      against them, grouped by floor — a repeated issue on the same
+      room is called out below it.</p>
+      <div id="reportFaultsList"></div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="reportsCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Notifications panel: what's new since you last looked -->
 <div class="sheet-backdrop" id="notifBackdrop">
   <div class="sheet">
@@ -667,6 +743,17 @@
         on to its next due date. This only happens while someone's got
         the app open, so a task due while it's closed won't spawn its
         job until the next time someone opens it.</li>
+        <li><strong>Reports</strong> — the bar-chart tile on Home —
+        has two views. <strong>Summary</strong> (with a 30/90 day/all
+        time picker): outstanding jobs right now, logged/closed counts
+        for the period, average time to close, walk and PPM stats, and
+        a jobs-by-area and jobs-by-department breakdown.
+        <strong>Faults by Room</strong> is always all-time: every room
+        with 2+ jobs ever logged against it, grouped by floor, with any
+        exact-same issue that's recurred on that room called out as its
+        own tag — the quickest way to spot something worth actually
+        investigating rather than just fixing again. Screen-only for
+        now, nothing to print or export yet.</li>
       </ul>
     </div>
 
@@ -679,6 +766,8 @@
         filtered and searched the same way.</li>
         <li>No editing, no New Job button — pass anything that needs
         raising to Housekeeping or Maintenance.</li>
+        <li><strong>Reports</strong> is also available — same Summary
+        and Faults by Room views described under Maintenance above.</li>
       </ul>
     </div>
 
@@ -692,7 +781,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.38"></script>
-<script src="app.js?v=0.1.38"></script>
+<script src="db.js?v=0.1.39"></script>
+<script src="app.js?v=0.1.39"></script>
 </body>
 </html>

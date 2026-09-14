@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.38';
+const APP_VERSION = '0.1.39';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -231,6 +231,7 @@ const HOME_ICONS = {
   walk: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><polyline points="9 14 11 16 15 12"></polyline></svg>`,
   history: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 16 14"></polyline></svg>`,
   ppm: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+  reports: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>`,
   settings: `⚙`
 };
 
@@ -242,6 +243,7 @@ function homeTilesForRole(role){
       { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' },
       { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
       { icon: HOME_ICONS.ppm, label: 'PPM', action: 'ppm' },
+      { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' },
       { icon: HOME_ICONS.settings, label: 'Settings', action: 'settings' }
     ];
   }
@@ -255,7 +257,8 @@ function homeTilesForRole(role){
   // management
   return [
     { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
-    { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' }
+    { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
+    { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' }
   ];
 }
 
@@ -266,6 +269,7 @@ function handleHomeTile(action){
   else if(action === 'walk'){ openWalkWizard(); }
   else if(action === 'walkHistory'){ openWalkHistory(); }
   else if(action === 'ppm'){ openPpmList(); }
+  else if(action === 'reports'){ openReports(); }
   else if(action === 'settings'){ openSettings(); }
 }
 
@@ -1637,6 +1641,177 @@ async function handleDeletePpmTask(){
   toast('Deleted');
 }
 
+// ---------------- Reports (maintenance and management) ----------------
+// Two views built from data already loaded client-side (jobs, walks,
+// ppmTasks) — nothing new synced from Firestore, purely computed on
+// open/tab-switch. Summary is period-scoped (all time / last 30 / 90
+// days); Faults by Room is deliberately all-time, since spotting a
+// recurring problem needs the full history, not a rolling window.
+
+let reportsTab = 'summary';
+let reportsPeriod = '30';
+
+function reportPeriodCutoff(period){
+  if(period === 'all') return null;
+  const days = period === '90' ? 90 : 30;
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
+function fmtDuration(ms){
+  if(ms == null) return '—';
+  const hours = ms / 3600000;
+  return hours < 24 ? `${hours.toFixed(1)}h` : `${(hours/24).toFixed(1)}d`;
+}
+
+function computeSummaryReport(period){
+  const cutoff = reportPeriodCutoff(period);
+  const loggedInPeriod = jobs.filter(j => !cutoff || j.dateLogged >= cutoff);
+  const closedInPeriod = jobs.filter(j => j.status === 'Done' && j.dateClosed && (!cutoff || j.dateClosed >= cutoff));
+  const openNow = jobs.filter(j => j.status !== 'Done');
+
+  const byArea = {};
+  loggedInPeriod.forEach(j=>{ const a = roomArea(j.room); byArea[a] = (byArea[a]||0) + 1; });
+  const bySource = {};
+  loggedInPeriod.forEach(j=>{ const s = j.source || 'Unknown'; bySource[s] = (bySource[s]||0) + 1; });
+
+  let avgCloseMs = null;
+  if(closedInPeriod.length){
+    const total = closedInPeriod.reduce((sum,j)=> sum + (new Date(j.dateClosed) - new Date(j.dateLogged)), 0);
+    avgCloseMs = total / closedInPeriod.length;
+  }
+
+  const walksInPeriod = walks.filter(w => !cutoff || w.startedAt >= cutoff);
+  const walksWithIssues = walksInPeriod.filter(w => (w.floors||[]).some(f=>!f.allClear));
+
+  return {
+    loggedCount: loggedInPeriod.length,
+    closedCount: closedInPeriod.length,
+    openNowCount: openNow.length,
+    byArea, bySource, avgCloseMs,
+    walksCount: walksInPeriod.length,
+    walksWithIssuesCount: walksWithIssues.length,
+    ppmOverdue: ppmTasks.filter(t=>ppmDueStatus(t)==='overdue').length,
+    ppmSoon: ppmTasks.filter(t=>ppmDueStatus(t)==='soon').length
+  };
+}
+
+// Every job ever logged against each room, all-time — a room with only
+// one job ever isn't a "pattern", so the render step below only shows
+// rooms with 2+, and flags individual issue text that's recurred.
+function computeFaultsByRoom(){
+  const byRoom = {};
+  jobs.forEach(j=>{
+    if(!j.room) return;
+    if(!byRoom[j.room]) byRoom[j.room] = { area: roomArea(j.room), total: 0, issues: {} };
+    const entry = byRoom[j.room];
+    entry.total++;
+    const key = (j.issue||'(no description)').trim().toLowerCase();
+    if(!entry.issues[key]) entry.issues[key] = { text: j.issue || '(no description)', count: 0 };
+    entry.issues[key].count++;
+  });
+  return byRoom;
+}
+
+function renderReportBarList(counts, wrap){
+  const entries = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
+  if(entries.length === 0){ wrap.innerHTML = `<div class="notif-empty">Nothing in this period</div>`; return; }
+  const max = entries[0][1];
+  wrap.innerHTML = entries.map(([label,count])=>`
+    <div class="report-bar-row">
+      <div class="report-bar-row-top">
+        <span class="report-bar-row-label">${escapeHtml(label)}</span>
+        <span class="report-bar-row-count">${count}</span>
+      </div>
+      <div class="report-bar-track"><div class="report-bar-fill" style="width:${Math.max(4, Math.round(count/max*100))}%"></div></div>
+    </div>
+  `).join('');
+}
+
+function renderReportsSummary(){
+  const s = computeSummaryReport(reportsPeriod);
+  el('reportStatOpen').textContent = s.openNowCount;
+  el('reportStatLogged').textContent = s.loggedCount;
+  el('reportStatClosed').textContent = s.closedCount;
+  el('reportStatAvgClose').textContent = fmtDuration(s.avgCloseMs);
+  el('reportStatWalks').textContent = s.walksCount;
+  el('reportStatWalksIssues').textContent = s.walksWithIssuesCount;
+  el('reportStatPpmOverdue').textContent = s.ppmOverdue;
+  el('reportStatPpmSoon').textContent = s.ppmSoon;
+  renderReportBarList(s.byArea, el('reportByArea'));
+  renderReportBarList(s.bySource, el('reportBySource'));
+}
+
+function renderReportsFaults(){
+  const byRoom = computeFaultsByRoom();
+  const byArea = {};
+  Object.entries(byRoom).forEach(([room, data])=>{
+    if(data.total < 2) return; // not a pattern with just one job ever
+    if(!byArea[data.area]) byArea[data.area] = [];
+    byArea[data.area].push({ room, ...data });
+  });
+
+  const areaKeys = Object.keys(byArea).sort((a,b)=>{
+    const idxA = (config.areas||[]).indexOf(a);
+    const idxB = (config.areas||[]).indexOf(b);
+    if(idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if(idxA === -1) return 1;
+    if(idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
+  const wrap = el('reportFaultsList');
+  if(areaKeys.length === 0){
+    wrap.innerHTML = `<div class="notif-empty">No room has 2+ jobs logged against it yet</div>`;
+    return;
+  }
+
+  wrap.innerHTML = areaKeys.map(area=>{
+    const rooms = byArea[area].sort((a,b)=> b.total - a.total);
+    return `
+      <details class="group" open>
+        <summary class="group-label"><span class="area-label">${escapeHtml(area)}</span><span class="group-count">${rooms.length}</span><div class="rule"></div></summary>
+        ${rooms.map(r=>{
+          const recurring = Object.values(r.issues).filter(i=>i.count >= 2).sort((a,b)=>b.count-a.count);
+          return `
+            <div class="fault-room-row">
+              <div class="fault-room-top">
+                <span>${escapeHtml(r.room)}</span>
+                <span class="fault-room-count">${r.total} job${r.total===1?'':'s'}</span>
+              </div>
+              ${recurring.length ? `<div class="fault-room-issues">${recurring.map(i=>
+                `<span class="fault-issue-chip">${escapeHtml(i.text)} ×${i.count}</span>`
+              ).join('')}</div>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </details>
+    `;
+  }).join('');
+}
+
+function renderReports(){
+  el('reportsSummaryView').style.display = reportsTab === 'summary' ? '' : 'none';
+  el('reportsFaultsView').style.display = reportsTab === 'faults' ? '' : 'none';
+  el('reportsPeriodChips').style.display = reportsTab === 'summary' ? '' : 'none';
+  document.querySelectorAll('#reportsTabChips .chip').forEach(c=>{
+    c.classList.toggle('active', c.dataset.tab === reportsTab);
+  });
+  document.querySelectorAll('#reportsPeriodChips .chip').forEach(c=>{
+    c.classList.toggle('active', c.dataset.period === reportsPeriod);
+  });
+  if(reportsTab === 'summary') renderReportsSummary(); else renderReportsFaults();
+}
+
+function openReports(){
+  renderReports();
+  el('reportsBackdrop').classList.add('open');
+}
+function closeReports(){
+  el('reportsBackdrop').classList.remove('open');
+}
+
 // ---------------- settings sheet (maintenance only) ----------------
 
 // Settings itself is a Home-style tile screen (same pattern as the
@@ -1966,6 +2141,15 @@ on('ppmTaskCancelBtn', 'click', closePpmTaskSheet);
 on('ppmTaskSaveBtn', 'click', handleSavePpmTask);
 on('ppmTaskDeleteBtn', 'click', handleDeletePpmTask);
 on('ppmTaskBackdrop', 'click', (e)=>{ if(e.target.id==='ppmTaskBackdrop') closePpmTaskSheet(); });
+
+on('reportsCloseBtn', 'click', closeReports);
+on('reportsBackdrop', 'click', (e)=>{ if(e.target.id==='reportsBackdrop') closeReports(); });
+document.querySelectorAll('#reportsTabChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{ reportsTab = c.dataset.tab; renderReports(); });
+});
+document.querySelectorAll('#reportsPeriodChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{ reportsPeriod = c.dataset.period; renderReports(); });
+});
 
 on('searchInput', 'input', render);
 on('showAllBtn', 'click', ()=>{
