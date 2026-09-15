@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.42';
+const APP_VERSION = '0.1.43';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1517,9 +1517,12 @@ async function checkPpmDue(){
       dateClosed: ''
     };
     stampAudit(job, true);
-    await DB.putJob(job);
-    task.activeJobId = job.id;
-    await DB.putPpmTask(task);
+    // Claim-and-create happens in one Firestore transaction (see
+    // db.js) — this check firing again for the same task while this
+    // call is still mid-loop (its own writes re-trigger the realtime
+    // listener) is exactly what this guards against, so a fresh
+    // uid('j') per re-entrant attempt is fine: only one ever wins.
+    await DB.claimPpmTaskAndCreateJob(task.id, job);
   }
 }
 

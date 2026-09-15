@@ -140,6 +140,27 @@ const DB = {
     await firestore.collection('ppmTasks').doc(id).delete();
   },
 
+  // Atomically claims a due PPM task and creates its linked job in one
+  // transaction, so two overlapping checks — the same device's own
+  // write re-triggering its realtime listener mid-check, or two staff
+  // signed in at once — can't both win the "is this task still
+  // unclaimed?" read and each create a duplicate job. Returns true if
+  // this call created the job, false if the task turned out to already
+  // be claimed (or no longer due) by the time the transaction ran.
+  async claimPpmTaskAndCreateJob(taskId, job) {
+    return await firestore.runTransaction(async (tx) => {
+      const taskRef = firestore.collection('ppmTasks').doc(taskId);
+      const taskSnap = await tx.get(taskRef);
+      if (!taskSnap.exists) return false;
+      const task = taskSnap.data();
+      if (task.activeJobId) return false;
+      if (new Date(task.nextDueAt).getTime() > Date.now()) return false;
+      tx.set(firestore.collection('jobs').doc(job.id), job);
+      tx.update(taskRef, { activeJobId: job.id });
+      return true;
+    });
+  },
+
   // ---- config (realtime) ----
   onConfigChange(callback) {
     return firestore.collection('config').doc('main').onSnapshot((doc) => {
