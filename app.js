@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.43';
+const APP_VERSION = '0.1.44';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -1169,14 +1169,34 @@ function walkGoBack(){
   }
 }
 
+// finishWalk() below does one sequential Firestore write per fault
+// plus the walk record itself — on a slow connection with several
+// faults logged, that's a real window where the button is still
+// sitting there tappable. A second tap (impatience, or just a
+// touchscreen double-tap) would re-enter this while walkIndex is
+// still on the last floor, calling finishWalk() again and writing a
+// second walk record — and very possibly duplicate jobs too, since
+// the per-fault duplicate check reads the local jobs cache, which
+// won't have caught up between two near-simultaneous calls. The guard
+// below makes a second tap during submission a no-op.
+let walkSubmitting = false;
+
 async function walkGoNext(){
+  if(walkSubmitting) return;
   saveCurrentWalkStep();
   // Stamped on forward progress only — going Back to revise a floor
   // doesn't count as re-completing it until Next is tapped again, so a
   // gap between two floors' timestamps always reflects real time spent.
   walkData[walkAreas[walkIndex]].completedAt = new Date().toISOString();
   if(walkIndex === walkAreas.length - 1){
-    await finishWalk();
+    walkSubmitting = true;
+    el('walkNextBtn').disabled = true;
+    try {
+      await finishWalk();
+    } finally {
+      walkSubmitting = false;
+      el('walkNextBtn').disabled = false;
+    }
   } else {
     walkIndex++;
     renderWalkStep();
