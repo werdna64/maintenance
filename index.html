@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.46">
+<link rel="stylesheet" href="style.css?v=0.1.47">
 </head>
 <body>
 
@@ -143,6 +143,57 @@
 <div id="list"></div>
 
 <button class="fab" id="fabAdd" aria-label="Add job">+</button>
+
+<!-- New job wizard (maintenance: creating a job): floor -> room -> issue,
+     one short step at a time instead of a page of fields at once.
+     Editing an existing job still uses the sheet below — editing is
+     correcting known data plus status/notes, not stepping through
+     unknowns, so it doesn't fit the same wizard shape. -->
+<div class="sheet-backdrop" id="jobWizardBackdrop">
+  <div class="sheet">
+    <h2>New job</h2>
+    <div class="walk-progress" id="njProgress"></div>
+
+    <div class="field" id="njStepArea">
+      <label>Area</label>
+      <select id="nj_area">
+        <option value="">Select area…</option>
+      </select>
+    </div>
+
+    <div class="field" id="njStepRoom" style="display:none;">
+      <label>Room</label>
+      <select id="nj_room">
+        <option value="">Select an area first…</option>
+      </select>
+    </div>
+
+    <div id="njStepIssue" style="display:none;">
+      <div class="field">
+        <label>Reported by (department)</label>
+        <select id="nj_source">
+          <option value="">Select…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Quick pick</label>
+        <select id="nj_issuePreset">
+          <option value="">Other (type your own)…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Issue</label>
+        <textarea id="nj_issue" rows="3" placeholder="e.g. Replace room controller — repeated P10 comms faults"></textarea>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="njCancelBtn">Cancel</button>
+      <button class="btn btn-ghost" id="njBackBtn" style="display:none;">Back</button>
+      <button class="btn btn-primary" id="njNextBtn">Next</button>
+    </div>
+  </div>
+</div>
 
 <!-- Job sheet (maintenance: full edit. others: read-only view) -->
 <div class="sheet-backdrop" id="sheetBackdrop">
@@ -641,6 +692,10 @@
       tiles linking into whatever this app covers for your role — tap
       the 🏠 icon in the header (or the header title) any time to get
       back to it.</p>
+      <p>Every sheet/dialog closes only via its own Close, Cancel or
+      Back button — tapping outside one no longer dismisses it, so a
+      stray tap can't lose something you were partway through
+      entering.</p>
     </div>
 
     <div class="settings-section">
@@ -732,12 +787,15 @@
     <div class="settings-section">
       <h3>Maintenance</h3>
       <ul>
-        <li>Full control over every job: tap <strong>+</strong> to log a
-        new one, tap any job to edit it, tap the status pill to cycle it
-        Open → In Progress → Awaiting Parts → Done.</li>
-        <li>Pick Area before Room when logging or editing a job — Room
-        only lists that area's rooms, rather than every room in the
-        hotel in one long list.</li>
+        <li>Full control over every job: tap any job to edit it, tap the
+        status pill to cycle it Open → In Progress → Awaiting Parts →
+        Done.</li>
+        <li>Tap <strong>+</strong> to log a new job through a short
+        3-step wizard — Area, then Room (filtered to that area), then
+        the issue details (Reported by, Quick pick, description) — one
+        step at a time. Back/Next move between steps, and the last step
+        saves the job. Editing an existing job still opens the usual
+        single-page sheet.</li>
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
@@ -833,7 +891,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.46"></script>
-<script src="app.js?v=0.1.46"></script>
+<script src="db.js?v=0.1.47"></script>
+<script src="app.js?v=0.1.47"></script>
 </body>
 </html>

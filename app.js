@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.46';
+const APP_VERSION = '0.1.47';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -237,7 +237,7 @@ function applyRolePermissions(role){
   // FAB's onclick is role-based and set once here; whether it's actually
   // visible also depends on which screen is showing — see showView().
   if(role === 'maintenance'){
-    el('fabAdd').onclick = ()=>openJobSheet(null);
+    el('fabAdd').onclick = ()=>openJobWizard();
   } else if(role === 'housekeeping'){
     el('fabAdd').onclick = ()=>openReportSheet();
   }
@@ -287,7 +287,7 @@ function homeTilesForRole(role){
 }
 
 function handleHomeTile(action){
-  if(action === 'newJob'){ showView('jobs'); openJobSheet(null); }
+  if(action === 'newJob'){ showView('jobs'); openJobWizard(); }
   else if(action === 'report'){ showView('jobs'); openReportSheet(); }
   else if(action === 'jobs'){ showView('jobs'); }
   else if(action === 'walk'){ openWalkWizard(); }
@@ -392,14 +392,17 @@ function renderAreaSelects(){
   const options = `<option value="">Select area…</option>` +
     (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   const currentJobArea = el('f_area').value;
+  const currentNjArea = el('nj_area').value;
   const currentReportArea = el('r_area').value;
   const currentPpmArea = el('p_area').value;
   const currentSettingsArea = el('s_newRoomArea').value;
   el('f_area').innerHTML = options;
+  el('nj_area').innerHTML = options;
   el('r_area').innerHTML = options;
   el('p_area').innerHTML = options;
   el('s_newRoomArea').innerHTML = options;
   if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
+  if((config.areas||[]).includes(currentNjArea)) el('nj_area').value = currentNjArea;
   if((config.areas||[]).includes(currentReportArea)) el('r_area').value = currentReportArea;
   if((config.areas||[]).includes(currentPpmArea)) el('p_area').value = currentPpmArea;
   if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
@@ -418,14 +421,19 @@ function renderIssuePresetSelects(){
   const options = `<option value="">Other (type your own)…</option>` +
     sorted.map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
   el('f_issuePreset').innerHTML = options;
+  el('nj_issuePreset').innerHTML = options;
   el('r_issuePreset').innerHTML = options;
 }
 
 function renderSourceSelect(){
   const current = el('f_source').value;
-  el('f_source').innerHTML = `<option value="">Select…</option>` +
+  const currentNj = el('nj_source').value;
+  const options = `<option value="">Select…</option>` +
     (config.departments||[]).map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  el('f_source').innerHTML = options;
+  el('nj_source').innerHTML = options;
   if((config.departments||[]).includes(current)) el('f_source').value = current;
+  if((config.departments||[]).includes(currentNj)) el('nj_source').value = currentNj;
 }
 
 // The room list is scoped to whichever area is currently picked in that
@@ -446,6 +454,7 @@ function populateRoomSelect(selectId, areaId){
 function renderRoomSelect(){
   populateRoomSelect('r_room', 'r_area');
   populateRoomSelect('f_room', 'f_area');
+  populateRoomSelect('nj_room', 'nj_area');
   populateRoomSelect('p_room', 'p_area');
 }
 
@@ -787,6 +796,88 @@ function openJobSheet(job){
 function closeJobSheet(){
   el('sheetBackdrop').classList.remove('open');
   editingId = null;
+}
+
+// ---------------- new job wizard ----------------
+// Creating a job is the one flow with no existing data to show —
+// floor, then room, then what's wrong — so it's a short step-by-step
+// wizard instead of a page of fields shown at once. Mirrors the Walk
+// wizard's shape (progress line, Back/Next, Cancel confirms once
+// there's something to lose) but has no draft persistence: a new job
+// is a couple of taps, not a session spread across floors.
+const NJ_STEP_LABELS = ['Area', 'Room', 'Issue details'];
+let njStep = 0;
+
+function njHasProgress(){
+  return !!(el('nj_area').value || el('nj_room').value || el('nj_issue').value.trim());
+}
+
+function openJobWizard(){
+  njStep = 0;
+  el('nj_area').value = '';
+  populateRoomSelect('nj_room', 'nj_area');
+  el('nj_source').value = currentUser.department || '';
+  el('nj_issuePreset').value = '';
+  el('nj_issue').value = '';
+  renderJobWizardStep();
+  el('jobWizardBackdrop').classList.add('open');
+}
+
+function closeJobWizard(){
+  el('jobWizardBackdrop').classList.remove('open');
+}
+
+async function handleCancelJobWizard(){
+  if(njHasProgress() && !(await showConfirm('Cancel this job?', 'What you’ve entered so far will be lost.', 'Cancel', 'Keep going'))) return;
+  closeJobWizard();
+}
+
+function renderJobWizardStep(){
+  el('njProgress').textContent = `Step ${njStep + 1} of ${NJ_STEP_LABELS.length} — ${NJ_STEP_LABELS[njStep]}`;
+  el('njStepArea').style.display = njStep === 0 ? '' : 'none';
+  el('njStepRoom').style.display = njStep === 1 ? '' : 'none';
+  el('njStepIssue').style.display = njStep === 2 ? '' : 'none';
+  el('njBackBtn').style.display = njStep === 0 ? 'none' : '';
+  el('njNextBtn').textContent = njStep === NJ_STEP_LABELS.length - 1 ? 'Save job' : 'Next';
+}
+
+function njGoBack(){
+  if(njStep === 0) return;
+  njStep--;
+  renderJobWizardStep();
+}
+
+async function njGoNext(){
+  if(njStep === 0){
+    if(!el('nj_area').value){ toast('Select an area'); return; }
+    populateRoomSelect('nj_room', 'nj_area');
+    njStep = 1;
+    renderJobWizardStep();
+    return;
+  }
+  if(njStep === 1){
+    if(!el('nj_room').value){ toast('Select a room'); return; }
+    njStep = 2;
+    renderJobWizardStep();
+    return;
+  }
+  await handleSaveNewJob();
+}
+
+async function handleSaveNewJob(){
+  const room = el('nj_room').value.trim();
+  if(!room){ toast('Room is required'); return; }
+  const job = { id: uid('j'), dateLogged: new Date().toISOString() };
+  job.room = room;
+  job.issue = el('nj_issue').value.trim();
+  job.status = 'Open';
+  job.source = el('nj_source').value || currentUser.department || 'Maintenance';
+  job.dateClosed = '';
+  stampAudit(job, true);
+
+  await DB.putJob(job);
+  closeJobWizard();
+  toast('Saved');
 }
 
 function renderNotesList(job){
@@ -2349,13 +2440,19 @@ on('f_issuePreset', 'change', ()=>{
 });
 on('cancelBtn', 'click', closeJobSheet);
 on('saveBtn', 'click', handleSaveJob);
+
+on('nj_area', 'change', ()=>{ populateRoomSelect('nj_room', 'nj_area'); });
+on('nj_issuePreset', 'change', ()=>{
+  if(el('nj_issuePreset').value) el('nj_issue').value = el('nj_issuePreset').value;
+});
+on('njCancelBtn', 'click', handleCancelJobWizard);
+on('njBackBtn', 'click', njGoBack);
+on('njNextBtn', 'click', njGoNext);
 on('addNoteBtn', 'click', handleAddNote);
 on('f_newNote', 'keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleAddNote(); } });
 on('deleteBtn', 'click', openDeleteConfirm);
 on('deleteConfirmCancelBtn', 'click', closeDeleteConfirm);
 on('deleteConfirmBtn', 'click', handleConfirmDelete);
-on('deleteConfirmBackdrop', 'click', (e)=>{ if(e.target.id==='deleteConfirmBackdrop') closeDeleteConfirm(); });
-on('sheetBackdrop', 'click', (e)=>{ if(e.target.id==='sheetBackdrop') closeJobSheet(); });
 
 on('r_area', 'change', ()=>{ populateRoomSelect('r_room', 'r_area'); });
 on('r_issuePreset', 'change', ()=>{
@@ -2363,39 +2460,28 @@ on('r_issuePreset', 'change', ()=>{
 });
 on('reportCancelBtn', 'click', closeReportSheet);
 on('reportSubmitBtn', 'click', handleSubmitReport);
-on('reportBackdrop', 'click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
 
 on('walkBtn', 'click', openWalkWizard);
 on('walkCancelBtn', 'click', handleCancelWalk);
 on('walkBackBtn', 'click', walkGoBack);
 on('walkNextBtn', 'click', walkGoNext);
-// Deliberately no backdrop-tap-to-close here, unlike every other sheet
-// — a stray tap losing a half-finished walk is exactly the bug this
-// was built to stop. Cancel (with its own confirmation) is now the
-// only way out.
 
 on('walkHistoryBtn', 'click', openWalkHistory);
 on('walkHistoryCloseBtn', 'click', closeWalkHistory);
-on('walkHistoryBackdrop', 'click', (e)=>{ if(e.target.id==='walkHistoryBackdrop') closeWalkHistory(); });
 
 on('guideBtn', 'click', openGuide);
 on('loginGuideBtn', 'click', openGuide);
 on('guideCloseBtn', 'click', closeGuide);
-on('guideBackdrop', 'click', (e)=>{ if(e.target.id==='guideBackdrop') closeGuide(); });
 
 on('ppmCloseBtn', 'click', closePpmList);
 on('ppmAddBtn', 'click', ()=>openPpmTaskSheet(null));
-on('ppmBackdrop', 'click', (e)=>{ if(e.target.id==='ppmBackdrop') closePpmList(); });
 on('p_area', 'change', ()=>{ populateRoomSelect('p_room', 'p_area'); });
 on('ppmTaskCancelBtn', 'click', closePpmTaskSheet);
 on('ppmTaskSaveBtn', 'click', handleSavePpmTask);
 on('ppmTaskDeleteBtn', 'click', handleDeletePpmTask);
-on('ppmTaskBackdrop', 'click', (e)=>{ if(e.target.id==='ppmTaskBackdrop') closePpmTaskSheet(); });
 
 on('reportsCloseBtn', 'click', closeReports);
-on('reportsBackdrop', 'click', (e)=>{ if(e.target.id==='reportsBackdrop') closeReports(); });
 on('reportDrillCloseBtn', 'click', closeReportDrilldown);
-on('reportDrillBackdrop', 'click', (e)=>{ if(e.target.id==='reportDrillBackdrop') closeReportDrilldown(); });
 document.querySelectorAll('#reportsTabChips .chip').forEach(c=>{
   c.addEventListener('click', ()=>{ reportsTab = c.dataset.tab; renderReports(); });
 });
@@ -2414,11 +2500,9 @@ on('showAllBtn', 'click', ()=>{
 
 on('notifBtn', 'click', openNotifPanel);
 on('notifCloseBtn', 'click', closeNotifPanel);
-on('notifBackdrop', 'click', (e)=>{ if(e.target.id==='notifBackdrop') closeNotifPanel(); });
 
 on('settingsBtn', 'click', openSettings);
 on('closeSettingsBtn', 'click', closeSettings);
-on('settingsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsBackdrop') closeSettings(); });
 
 // Each Settings tile's sheet just closes back to the Settings tile
 // screen underneath (same stacked-sheet pattern as everywhere else) —
@@ -2429,22 +2513,16 @@ async function closeSettingsSiteSheet(){
   el('settingsSiteBackdrop').classList.remove('open');
 }
 on('closeSettingsSiteBtn', 'click', closeSettingsSiteSheet);
-on('settingsSiteBackdrop', 'click', (e)=>{ if(e.target.id==='settingsSiteBackdrop') closeSettingsSiteSheet(); });
 
 on('closeSettingsAreasBtn', 'click', ()=> el('settingsAreasBackdrop').classList.remove('open'));
-on('settingsAreasBackdrop', 'click', (e)=>{ if(e.target.id==='settingsAreasBackdrop') el('settingsAreasBackdrop').classList.remove('open'); });
 
 on('closeSettingsCommonIssuesBtn', 'click', ()=> el('settingsCommonIssuesBackdrop').classList.remove('open'));
-on('settingsCommonIssuesBackdrop', 'click', (e)=>{ if(e.target.id==='settingsCommonIssuesBackdrop') el('settingsCommonIssuesBackdrop').classList.remove('open'); });
 
 on('closeSettingsDepartmentsBtn', 'click', ()=> el('settingsDepartmentsBackdrop').classList.remove('open'));
-on('settingsDepartmentsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsDepartmentsBackdrop') el('settingsDepartmentsBackdrop').classList.remove('open'); });
 
 on('closeSettingsWalkFaultsBtn', 'click', ()=> el('settingsWalkFaultsBackdrop').classList.remove('open'));
-on('settingsWalkFaultsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsWalkFaultsBackdrop') el('settingsWalkFaultsBackdrop').classList.remove('open'); });
 
 on('closeSettingsRoomsBtn', 'click', ()=> el('settingsRoomsBackdrop').classList.remove('open'));
-on('settingsRoomsBackdrop', 'click', (e)=>{ if(e.target.id==='settingsRoomsBackdrop') el('settingsRoomsBackdrop').classList.remove('open'); });
 
 on('addAreaBtn', 'click', handleAddArea);
 on('addCommonIssueBtn', 'click', handleAddCommonIssue);

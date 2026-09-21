@@ -194,6 +194,11 @@ working with no signal once it's loaded once.
   covers for that role, rather than dropping straight into the job list —
   tap the 🏠 icon in the header (or the header title) any time to get
   back to it.
+- Every sheet/dialog in the app (job details, Settings, PPM, Reports,
+  the walk wizard, confirmations — all of it) only closes via its own
+  Close/Cancel/Back button. Tapping outside a sheet no longer dismisses
+  it, so a stray tap can't lose something you were partway through
+  entering.
 - There's a built-in **User Guide** covering all of this from inside the
   app itself — "How to use this app" on the login screen (readable
   before signing in), or the book icon in the header once signed in.
@@ -232,8 +237,16 @@ working with no signal once it's loaded once.
   job back as "new" if you looked at it but never opened the
   notifications panel, since that's the only part that's actually
   saved.
+- Maintenance logs a new job through a short **3-step wizard** (tap the
+  ➕ button, or Home → New Job) — Area, then Room (filtered to that
+  area), then the issue details (Reported by, an optional Quick pick,
+  and a free-text description) — one screen at a time instead of a
+  single page of fields. Back/Next move between steps; the last step's
+  button becomes **Save job**. Editing an existing job still opens the
+  regular single-page sheet, since editing is correcting/adding to data
+  that already exists rather than stepping through unknowns.
 - Every new job starts as **Open**, no matter who creates it — the New
-  Job dialog doesn't offer a status choice at creation. Only Maintenance
+  Job wizard doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on
   each card, or editing the job).
 - **Marking a job Done requires a note first** — explaining what was
@@ -271,7 +284,7 @@ working with no signal once it's loaded once.
   actually came from, separate from who typed it in. Housekeeping's own
   reports and Fire & Security Walk findings tag themselves automatically
   from the reporter's department; when Maintenance logs a job on behalf
-  of someone else (e.g. a phone call from Reception), the New Job dialog
+  of someone else (e.g. a phone call from Reception), the New Job wizard
   has a "Reported by" picker defaulting to Maintenance's own department.
   ⚙ Settings → **Departments** is the editable list this picker draws
   from — seeded with Housekeeping, Reception, Night Team, Duty Manager,
