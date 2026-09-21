@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.44';
+const APP_VERSION = '0.1.45';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -201,6 +201,7 @@ async function handleLogout(){
   lastAlertedTime = null; // a different person may sign in next on this device
   viewedJobIds = new Set();
   currentView = 'home';
+  clearWalkDraft(); // same reasoning — don't hand the next person on this device someone else's half-finished walk
   await DB.signOut();
 }
 
@@ -1008,19 +1009,84 @@ function walkAreaOrder(areas){
   return [...floors.map(f=>f.a), ...others];
 }
 
+// Saved to localStorage on every meaningful change so a walk survives
+// the app being backgrounded, reloaded, or actually closed mid-walk —
+// not just a stray tap. The backdrop no longer closes the wizard at
+// all (see wiring below); Cancel is the only deliberate way out, and
+// confirms once there's anything to lose.
+const WALK_DRAFT_KEY = 'walkDraft';
+
+function walkHasProgress(){
+  return walkIndex > 0 || walkAreas.some(a => walkData[a] && (walkData[a].faults.size > 0 || walkData[a].note));
+}
+
+function persistWalkDraft(){
+  try{
+    const data = {};
+    walkAreas.forEach(a=>{
+      data[a] = { faults: Array.from(walkData[a].faults.entries()), note: walkData[a].note, completedAt: walkData[a].completedAt };
+    });
+    localStorage.setItem(WALK_DRAFT_KEY, JSON.stringify({ walkAreas, walkIndex, walkStartedAt, data }));
+  }catch(e){}
+}
+
+function clearWalkDraft(){
+  try{ localStorage.removeItem(WALK_DRAFT_KEY); }catch(e){}
+}
+
+function loadWalkDraft(){
+  try{
+    const raw = localStorage.getItem(WALK_DRAFT_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    return (parsed && Array.isArray(parsed.walkAreas)) ? parsed : null;
+  }catch(e){ return null; }
+}
+
+function draftHasProgress(draft){
+  if(draft.walkIndex > 0) return true;
+  return Object.values(draft.data || {}).some(d => (d.faults && d.faults.length) || d.note);
+}
+
 function openWalkWizard(){
   if(!(config.areas||[]).length){ toast('Add areas in Settings first'); return; }
-  walkAreas = walkAreaOrder(config.areas);
-  walkIndex = 0;
-  walkData = {};
-  walkStartedAt = new Date().toISOString();
-  walkAreas.forEach(a => walkData[a] = { faults: new Map(), note: '', completedAt: null });
+
+  const draft = loadWalkDraft();
+  if(draft && draftHasProgress(draft) &&
+     confirm(`Resume the walk you started earlier (floor ${draft.walkIndex + 1} of ${draft.walkAreas.length})? Cancel to discard it and start fresh.`)){
+    walkAreas = draft.walkAreas;
+    walkIndex = draft.walkIndex;
+    walkStartedAt = draft.walkStartedAt;
+    walkData = {};
+    walkAreas.forEach(a=>{
+      const d = (draft.data && draft.data[a]) || { faults: [], note: '', completedAt: null };
+      walkData[a] = { faults: new Map(d.faults), note: d.note || '', completedAt: d.completedAt || null };
+    });
+  } else {
+    clearWalkDraft();
+    walkAreas = walkAreaOrder(config.areas);
+    walkIndex = 0;
+    walkData = {};
+    walkStartedAt = new Date().toISOString();
+    walkAreas.forEach(a => walkData[a] = { faults: new Map(), note: '', completedAt: null });
+    persistWalkDraft();
+  }
   renderWalkStep();
   el('walkBackdrop').classList.add('open');
 }
 
 function closeWalkWizard(){
   el('walkBackdrop').classList.remove('open');
+}
+
+// Cancelling is now the only deliberate way to abandon a walk (the
+// backdrop tap that used to do this silently is gone) — still a
+// one-tap no-op if nothing's actually been logged yet, but confirms
+// once there's real progress on the line.
+function handleCancelWalk(){
+  if(walkHasProgress() && !confirm('Cancel this walk? Everything logged so far will be lost.')) return;
+  clearWalkDraft();
+  closeWalkWizard();
 }
 
 function renderWalkStep(){
@@ -1082,6 +1148,7 @@ function renderWalkStep(){
 
     function syncRooms(){
       data.faults.set(name, Array.from(linesWrap.querySelectorAll('select')).map(s=>s.value));
+      persistWalkDraft();
     }
 
     function addRoomLine(room){
@@ -1107,6 +1174,7 @@ function renderWalkStep(){
           data.faults.delete(name);
           chip.classList.remove('active');
           roomsWrap.style.display = 'none';
+          persistWalkDraft();
         } else {
           syncRooms();
         }
@@ -1146,6 +1214,7 @@ function renderWalkStep(){
         chip.classList.add('active');
         roomsWrap.style.display = '';
       }
+      persistWalkDraft();
     });
 
     wrap.appendChild(row);
@@ -1159,6 +1228,7 @@ function renderWalkStep(){
 function saveCurrentWalkStep(){
   const area = walkAreas[walkIndex];
   if(area) walkData[area].note = el('walkNote').value.trim();
+  persistWalkDraft();
 }
 
 function walkGoBack(){
@@ -1166,6 +1236,7 @@ function walkGoBack(){
   if(walkIndex > 0){
     walkIndex--;
     renderWalkStep();
+    persistWalkDraft();
   }
 }
 
@@ -1200,6 +1271,7 @@ async function walkGoNext(){
   } else {
     walkIndex++;
     renderWalkStep();
+    persistWalkDraft();
   }
 }
 
@@ -1313,6 +1385,7 @@ async function finishWalk(){
   };
   await DB.putWalk(walk);
 
+  clearWalkDraft();
   closeWalkWizard();
   let msg;
   if(newCount === 0 && reconfirmedCount === 0) msg = 'Walk logged — all in order';
@@ -2270,10 +2343,13 @@ on('reportSubmitBtn', 'click', handleSubmitReport);
 on('reportBackdrop', 'click', (e)=>{ if(e.target.id==='reportBackdrop') closeReportSheet(); });
 
 on('walkBtn', 'click', openWalkWizard);
-on('walkCancelBtn', 'click', closeWalkWizard);
+on('walkCancelBtn', 'click', handleCancelWalk);
 on('walkBackBtn', 'click', walkGoBack);
 on('walkNextBtn', 'click', walkGoNext);
-on('walkBackdrop', 'click', (e)=>{ if(e.target.id==='walkBackdrop') closeWalkWizard(); });
+// Deliberately no backdrop-tap-to-close here, unlike every other sheet
+// — a stray tap losing a half-finished walk is exactly the bug this
+// was built to stop. Cancel (with its own confirmation) is now the
+// only way out.
 
 on('walkHistoryBtn', 'click', openWalkHistory);
 on('walkHistoryCloseBtn', 'click', closeWalkHistory);

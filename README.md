@@ -308,10 +308,19 @@ opens a floor-by-floor checklist, walked highest floor to lowest (then
 any non-numbered areas like Bar or Kitchen after). On each floor: tap
 any faults found (e.g. "Corridor lighting", "P10 fault") — leave them
 all untapped if the floor's all in order — and optionally add a
-freehand note, then **Next floor**. Nothing is saved until you tap
-**Finish walk** on the last floor, so **Cancel walk** at any point
-throws the whole walk away with nothing logged — no half-finished
-findings left behind.
+freehand note, then **Next floor**. Nothing is saved to everyone else's
+job list until you tap **Finish walk** on the last floor.
+
+Your progress is autosaved to the device as you go, so a walk survives
+the app being backgrounded, the phone locking, or the browser/PWA
+actually closing mid-walk — reopening the walk wizard offers to resume
+right where you left off (or discard it and start fresh). **Cancel
+walk** is the only deliberate way to throw a walk away, and asks you to
+confirm once there's anything on the line — tapping outside the wizard
+no longer closes it at all, precisely so a stray tap can't silently
+lose a half-finished walk. Logging out also clears any saved-but-not-
+resumed walk, so it can't accidentally get handed to whoever signs in
+next on a shared device.
 
 Each fault you tap becomes its own job, tagged `Fire & Security Walk`.
 By default it's logged against a "**{Floor} Corridor**" room that's

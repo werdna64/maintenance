@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.44">
+<link rel="stylesheet" href="style.css?v=0.1.45">
 </head>
 <body>
 
@@ -710,9 +710,15 @@
         a second (or third…) room too — for several of the same thing
         found in one walk — each removable on its own. Add a note if
         useful, then <strong>Next floor</strong>.</li>
-        <li>Nothing saves until you tap <strong>Finish walk</strong> on
-        the last floor. <strong>Cancel walk</strong> at any point throws
-        the whole thing away — nothing half-logged.</li>
+        <li>Nothing saves to the job list until you tap
+        <strong>Finish walk</strong> on the last floor — but your
+        progress is autosaved to the device as you go, so if the app
+        gets backgrounded, the phone locks, or it closes outright
+        mid-walk, reopening the walk wizard offers to pick up right
+        where you left off. <strong>Cancel walk</strong> is the only
+        deliberate way to throw it away, and checks with you first if
+        there's anything logged — tapping outside the wizard no longer
+        closes it, so a stray tap can't lose your walk.</li>
         <li>Every walk is recorded, even a fully clean one, so there's
         proof it happened — timestamped floor by floor.</li>
         <li>A fault that's already an open job (still being sorted from
@@ -811,7 +817,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.44"></script>
-<script src="app.js?v=0.1.44"></script>
+<script src="db.js?v=0.1.45"></script>
+<script src="app.js?v=0.1.45"></script>
 </body>
 </html>
