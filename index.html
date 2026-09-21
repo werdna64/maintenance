@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.45">
+<link rel="stylesheet" href="style.css?v=0.1.46">
 </head>
 <body>
 
@@ -813,11 +813,27 @@
   </div>
 </div>
 
+<!-- Generic yes/no confirm, used wherever the app needs to check before
+     doing something (e.g. cancelling or resuming a walk) instead of the
+     browser's own confirm() — which shows its own title (the site's
+     address) that a page has no way to customize. Driven entirely by
+     showConfirm() in app.js; content is filled in per use. -->
+<div class="sheet-backdrop" id="confirmBackdrop">
+  <div class="sheet">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p class="settings-hint" id="confirmBody"></p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="confirmNoBtn">Cancel</button>
+      <button class="btn btn-primary" id="confirmYesBtn">OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.45"></script>
-<script src="app.js?v=0.1.45"></script>
+<script src="db.js?v=0.1.46"></script>
+<script src="app.js?v=0.1.46"></script>
 </body>
 </html>

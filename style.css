@@ -378,6 +378,9 @@ header h1{
    above it — the ID selector's specificity wins over .sheet-backdrop's
    z-index:40 regardless of source order. */
 #guideBackdrop{z-index:150;}
+/* Needs to sit on top of whatever sheet it's confirming against
+   (e.g. the walk wizard), not just the base .sheet-backdrop layer. */
+#confirmBackdrop{z-index:160;}
 .sheet{
   width:100%; max-width:480px; background:var(--paper);
   border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom));

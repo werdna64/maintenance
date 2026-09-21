@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.45';
+const APP_VERSION = '0.1.46';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -46,6 +46,29 @@ function toast(msg){
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+// A yes/no confirm sheet matching the rest of the app, instead of the
+// browser's own confirm() — which shows its own title (the page's
+// address) that can't be changed or removed. Resolves true/false.
+function showConfirm(title, body, yesLabel, noLabel){
+  return new Promise(resolve=>{
+    el('confirmTitle').textContent = title;
+    el('confirmBody').textContent = body;
+    el('confirmYesBtn').textContent = yesLabel || 'OK';
+    el('confirmNoBtn').textContent = noLabel || 'Cancel';
+    const cleanup = (result)=>{
+      el('confirmBackdrop').classList.remove('open');
+      el('confirmYesBtn').removeEventListener('click', onYes);
+      el('confirmNoBtn').removeEventListener('click', onNo);
+      resolve(result);
+    };
+    const onYes = ()=> cleanup(true);
+    const onNo = ()=> cleanup(false);
+    el('confirmYesBtn').addEventListener('click', onYes);
+    el('confirmNoBtn').addEventListener('click', onNo);
+    el('confirmBackdrop').classList.add('open');
+  });
 }
 
 function escapeHtml(s){
@@ -1048,12 +1071,12 @@ function draftHasProgress(draft){
   return Object.values(draft.data || {}).some(d => (d.faults && d.faults.length) || d.note);
 }
 
-function openWalkWizard(){
+async function openWalkWizard(){
   if(!(config.areas||[]).length){ toast('Add areas in Settings first'); return; }
 
   const draft = loadWalkDraft();
   if(draft && draftHasProgress(draft) &&
-     confirm(`Resume the walk you started earlier (floor ${draft.walkIndex + 1} of ${draft.walkAreas.length})? Cancel to discard it and start fresh.`)){
+     await showConfirm('Resume walk?', `You started a walk earlier — floor ${draft.walkIndex + 1} of ${draft.walkAreas.length}. Resume it, or start fresh?`, 'Resume', 'Start fresh')){
     walkAreas = draft.walkAreas;
     walkIndex = draft.walkIndex;
     walkStartedAt = draft.walkStartedAt;
@@ -1083,8 +1106,8 @@ function closeWalkWizard(){
 // backdrop tap that used to do this silently is gone) — still a
 // one-tap no-op if nothing's actually been logged yet, but confirms
 // once there's real progress on the line.
-function handleCancelWalk(){
-  if(walkHasProgress() && !confirm('Cancel this walk? Everything logged so far will be lost.')) return;
+async function handleCancelWalk(){
+  if(walkHasProgress() && !(await showConfirm('Cancel this walk?', 'Everything logged so far will be lost.', 'Cancel walk', 'Keep walking'))) return;
   clearWalkDraft();
   closeWalkWizard();
 }
