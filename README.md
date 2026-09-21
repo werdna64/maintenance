@@ -214,11 +214,11 @@ working with no signal once it's loaded once.
   page — tap a tile to open that section, Close returns to the tile
   screen rather than out of Settings entirely.
 - The main list defaults to the **Active** filter — everything except
-  Done jobs — so it stays a list of what's actually outstanding instead
-  of accumulating every completed job forever. Tap **All** to see
-  everything including Done, or **Done** to see just the completed
-  ones; the "Show all" button next to search resets both the filter and
-  the search box back to everything in one tap.
+  Closed jobs — so it stays a list of what's actually outstanding
+  instead of accumulating every completed job forever. Tap **All** to
+  see everything including Closed, or **Closed** to see just the
+  completed ones; the "Show all" button next to search resets both the
+  filter and the search box back to everything in one tap.
 - Every area starts **collapsed**, with a count badge showing how many
   jobs are inside (the badge disappears once you expand it, since the
   cards themselves are the count then) — tap the heading to open or
@@ -249,8 +249,8 @@ working with no signal once it's loaded once.
   Job wizard doesn't offer a status choice at creation. Only Maintenance
   can move a job through its statuses afterwards (the status pill on
   each card, or editing the job).
-- **Marking a job Done requires a note first** — explaining what was
-  actually done to fix it. Tapping the status pill straight to Done
+- **Marking a job Closed requires a note first** — explaining what was
+  actually done to fix it. Tapping the status pill straight to Closed
   opens the job instead of applying it instantly, landing you in the
   Notes box; add a note (or leave one already on the thread) and Save
   to complete it. This is the one status change with a gate — cycling
@@ -358,7 +358,7 @@ it isn't lost.
 
 **A fault that keeps getting found doesn't pile up duplicate jobs.**
 Before logging a tapped fault as a new job, the walk checks whether
-there's already an open (non-Done) job for that exact room and fault —
+there's already an open (non-Closed) job for that exact room and fault —
 if so, it doesn't create another one. Matching is room-specific, so
 picking a different room for the same fault on a later walk (e.g. a
 different "nearest room" call for the same corridor light) starts a
@@ -367,7 +367,7 @@ consistent about which room a recurring fault gets logged against.
 This is what makes a fault that
 takes days to sort out (e.g. an EM light fitting that needs building,
 testing and fitting) behave correctly: it stays as the *same* job,
-carried through Open → In Progress → Awaiting Parts → Done at whatever
+carried through Open → In Progress → Awaiting Parts → Closed at whatever
 pace the work actually takes, how ever many walks re-confirm it's still
 broken in the meantime — not a fresh "Open" job every time it's
 re-spotted. When a Maintenance account runs the walk, each re-confirmation
@@ -378,7 +378,7 @@ that note — Housekeeping can't edit an existing job (see the security
 rules explainer above) — but Walk History still records that the fault
 was found again that day, which is where to check if a job's own notes
 don't mention it. Only a genuinely new occurrence, logged after the
-previous one is marked Done, starts a new job — this only matches
+previous one is marked Closed, starts a new job — this only matches
 faults picked from the Walk Faults checklist; a freehand "Walk note" is
 never de-duplicated, since two different days' free text is usually
 about two different things.
@@ -444,7 +444,7 @@ styles:
 
 When a task falls due, the app turns it into an ordinary job
 automatically — tagged `PPM`, showing up in the normal job list like
-anything else. Marking that job Done (same rule as any job: a note on
+anything else. Marking that job Closed (same rule as any job: a note on
 what was done is required first) is what advances the task to its next
 due date; nothing else touches the schedule. There's no server-side
 cron in this architecture, so a task only actually gets checked while

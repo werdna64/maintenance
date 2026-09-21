@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.47">
+<link rel="stylesheet" href="style.css?v=0.1.48">
 </head>
 <body>
 
@@ -235,7 +235,7 @@
         <option>Open</option>
         <option>In Progress</option>
         <option>Awaiting Parts</option>
-        <option>Done</option>
+        <option value="Done">Closed</option>
       </select>
     </div>
     <div class="field">
@@ -349,7 +349,7 @@
     <h2>PPM Tasks</h2>
     <p class="settings-hint">Recurring/compliance items — fire alarm
     tests, servicing, statutory checks. When one falls due it becomes a
-    normal job automatically; marking that job Done schedules the next
+    normal job automatically; marking that job Closed schedules the next
     one.</p>
     <div id="ppmList"></div>
     <div class="sheet-actions">
@@ -702,9 +702,9 @@
       <h3>Everyone (once signed in)</h3>
       <ul>
         <li>The main list groups every job by area/floor, then room. By
-        default it shows everything <strong>except Done</strong> jobs, so
+        default it shows everything <strong>except Closed</strong> jobs, so
         it stays a list of what's actually outstanding — tap the
-        <strong>All</strong> or <strong>Done</strong> chip to see
+        <strong>All</strong> or <strong>Closed</strong> chip to see
         completed jobs too.</li>
         <li>Every area starts collapsed — tap its heading to open it. A
         number badge shows how many jobs are inside; it turns
@@ -714,7 +714,7 @@
         <li>Tap a job to see the full detail — who logged it, when, and
         the complete note history.</li>
         <li>Use the search box to jump to a room number, or the status
-        chips (Active / All / Open / In Progress / Awaiting Parts / Done)
+        chips (Active / All / Open / In Progress / Awaiting Parts / Closed)
         to filter.</li>
         <li>🔔 shows what's changed since you last checked, with a short
         beep when something genuinely new comes in while you have the
@@ -778,7 +778,7 @@
         proof it happened — timestamped floor by floor.</li>
         <li>A fault that's already an open job (still being sorted from
         an earlier walk) won't be logged again as a duplicate — it stays
-        as the one job until it's marked Done, however many walks
+        as the one job until it's marked Closed, however many walks
         re-find it in the meantime. Check Walk History if you want to
         see exactly which days it was re-confirmed.</li>
       </ul>
@@ -789,7 +789,7 @@
       <ul>
         <li>Full control over every job: tap any job to edit it, tap the
         status pill to cycle it Open → In Progress → Awaiting Parts →
-        Done.</li>
+        Closed.</li>
         <li>Tap <strong>+</strong> to log a new job through a short
         3-step wizard — Area, then Room (filtered to that area), then
         the issue details (Reported by, Quick pick, description) — one
@@ -799,10 +799,10 @@
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
-        <li><strong>Marking Done needs a note</strong> saying what was
-        actually done — tapping the pill straight to Done opens the job
-        so you can add one (or it opens with one already there),
-        then Save. Everything else still cycles in one tap.</li>
+        <li><strong>Marking a job Closed needs a note</strong> saying
+        what was actually done — tapping the pill straight to Closed
+        opens the job so you can add one (or it opens with one already
+        there), then Save. Everything else still cycles in one tap.</li>
         <li><strong>Deleting a job needs a reason</strong> — typed into
         a small confirmation before it's removed. The job disappears
         from the list, but the reason is kept permanently, just not
@@ -825,7 +825,7 @@
         1st of the month); <strong>Rolling</strong> repeats count from
         whenever it's actually completed instead. When a task falls
         due, it automatically becomes an ordinary job (tagged
-        <strong>PPM</strong>) — marking that job Done the normal way
+        <strong>PPM</strong>) — marking that job Closed the normal way
         (note required, same as any other job) is what pushes the task
         on to its next due date. This only happens while someone's got
         the app open, so a task due while it's closed won't spawn its
@@ -891,7 +891,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.47"></script>
-<script src="app.js?v=0.1.47"></script>
+<script src="db.js?v=0.1.48"></script>
+<script src="app.js?v=0.1.48"></script>
 </body>
 </html>

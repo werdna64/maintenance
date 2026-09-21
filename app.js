@@ -4,11 +4,19 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.47';
+const APP_VERSION = '0.1.48';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
 const STATUS_ORDER = {"Open":0,"In Progress":1,"Awaiting Parts":1,"Done":2};
+
+// The stored/compared value stays "Done" everywhere (Firestore data,
+// filters, CSS classes) so existing jobs and rules don't need touching
+// — only what's actually shown to a person reads "Closed" instead.
+const STATUS_LABELS = { "Done": "Closed" };
+function jobStatusLabel(status){
+  return STATUS_LABELS[status] || status;
+}
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
@@ -382,7 +390,7 @@ function renderChips(){
   ['Active', 'All', ...STATUSES].forEach(s=>{
     const c = document.createElement('div');
     c.className = 'chip' + (activeFilter===s ? ' active':'');
-    c.textContent = s;
+    c.textContent = jobStatusLabel(s);
     c.onclick = ()=>{ activeFilter = s; render(); };
     wrap.appendChild(c);
   });
@@ -526,7 +534,7 @@ function computeNotifications(){
       if(t > since){
         items.push({
           time: t, tag: 'Updated',
-          title: `${j.room} — now ${j.status}`,
+          title: `${j.room} — now ${jobStatusLabel(j.status)}`,
           meta: `By ${j.updatedByName || 'someone'} · ${fmtDateTime(j.updatedAt)}`,
           job: j
         });
@@ -614,7 +622,7 @@ function render(){
     const counts = { Open:0, "In Progress":0, "Awaiting Parts":0, Done:0 };
     jobs.forEach(j=>{ if(counts[j.status] !== undefined) counts[j.status]++; });
     el('summaryLine').textContent =
-      `${counts.Open} Open · ${counts["In Progress"]} In Progress · ${counts["Awaiting Parts"]} Awaiting Parts · ${counts.Done} Done`;
+      `${counts.Open} Open · ${counts["In Progress"]} In Progress · ${counts["Awaiting Parts"]} Awaiting Parts · ${counts.Done} ${jobStatusLabel('Done')}`;
   }
 
   const list = el('list');
@@ -678,8 +686,8 @@ function render(){
             <div class="card-top">
               <div class="issue">${escapeHtml(j.issue || '(no description)')}</div>
               ${canEdit
-                ? `<button class="status-btn ${statusClass}" data-id="${j.id}">${j.status}</button>`
-                : `<span class="status-badge ${statusClass}">${j.status}</span>`}
+                ? `<button class="status-btn ${statusClass}" data-id="${j.id}">${jobStatusLabel(j.status)}</button>`
+                : `<span class="status-badge ${statusClass}">${jobStatusLabel(j.status)}</span>`}
             </div>
             <div class="meta">
               ${j.createdByName
@@ -740,7 +748,7 @@ async function cycleStatus(j){
   j.dateClosed = '';
   stampAudit(j, false);
   await DB.putJob(j);
-  toast(`${j.room} → ${j.status}`);
+  toast(`${j.room} → ${jobStatusLabel(j.status)}`);
 }
 
 // ---------------- job sheet (maintenance: edit, others: view) ----------------
@@ -954,7 +962,7 @@ async function handleSaveJob(){
   // it — block the save until the note thread has at least one entry
   // (add one via the Notes section above, then Save again).
   if(status === 'Done' && normalizeNotes(job).length === 0){
-    toast('Add a note on what was done before marking Done');
+    toast('Add a note on what was done before marking it Closed');
     el('f_newNote').focus();
     return;
   }
@@ -1966,7 +1974,7 @@ function openReportDrilldown(title, jobList){
         <div class="drill-job-row" data-id="${j.id}">
           <div class="drill-job-top">
             <span class="drill-job-room">${escapeHtml(j.room)}</span>
-            <span class="status-badge ${statusClass}">${j.status}</span>
+            <span class="status-badge ${statusClass}">${jobStatusLabel(j.status)}</span>
           </div>
           <div class="drill-job-issue">${escapeHtml(j.issue || '(no description)')}</div>
           <div class="drill-job-meta">${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>
