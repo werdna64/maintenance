@@ -15,16 +15,20 @@ as themselves, every job records who actually logged it, updated it, or
 closed it — a real audit trail, not a free-text field anyone could fill
 in with anything.
 
-Each account is assigned one of three roles:
+Each account is assigned one of four roles:
 
 | Role | Can do |
 |---|---|
-| **Maintenance** | Full control: log/edit/delete jobs, cycle status, manage the list of rooms and areas, set the site name. |
-| **Housekeeping** | Raise a "Report a problem" against an existing room, and see the status of everything reported. Can't edit, delete, or change status — corrections go through Maintenance. |
-| **Management** | Read-only dashboard: open/in-progress/awaiting-parts/done counts, and the full job list, grouped the same way. No editing. |
+| **Maintenance** | Full control: log/edit/delete jobs, cycle status, manage the list of rooms and areas, set the site name, manage PPM tasks. |
+| **Housekeeping** | Raise a "Report a problem" against an existing room (auto-tagged with their department), and log/edit any job and cycle its status — same as Maintenance, minus Delete and Settings/PPM. |
+| **Management** | Log a new job through the same wizard Maintenance uses, and edit/cycle the status of any job — same as Housekeeping, minus the "Report a problem" shortcut. No Delete, no Settings/PPM, no Fire & Security Walk. |
+| **Viewer** | Read-only dashboard: open/in-progress/awaiting-parts/closed counts, and the full job list, Walk History and Reports, grouped the same way as everyone else. No editing, nothing to log. |
 
 This means housekeeping's reports land directly in the job list — no more
-relaying through the chat group.
+relaying through the chat group. Only **Maintenance** can delete a job or
+touch Settings/PPM — everyone else with an edit-capable role (Maintenance,
+Housekeeping, Management) can log and correct jobs, so a wrong room or a
+typo doesn't have to wait for Maintenance to fix it.
 
 ## Files
 
@@ -93,7 +97,8 @@ account, or repurpose one — e.g. rename its `name` field — for yourself.)
 2. In the Firestore console, manually add a collection called `users`.
    For each person, add a document whose **Document ID** is that
    person's UID (from step 3), with three fields:
-   - `role` (string) = `maintenance`, `housekeeping`, or `management`
+   - `role` (string) = `maintenance`, `housekeeping`, `management`, or
+     `viewer`
    - `name` (string) = their display name, e.g. `Duncan` — this is what
      shows up on jobs they log, so you can tell who did what.
    - `department` (string) = which department they actually belong to,
@@ -203,9 +208,9 @@ working with no signal once it's loaded once.
   app itself — "How to use this app" on the login screen (readable
   before signing in), or the book icon in the header once signed in.
   It's organized by role (Everyone, Housekeeping/Night Team/Duty
-  Managers, Fire & Security Walk, Maintenance, Management), so send
-  people there first rather than this README, which is really the setup
-  doc for whoever's running the Firebase project.
+  Managers, Fire & Security Walk, Maintenance, Management, Viewer), so
+  send people there first rather than this README, which is really the
+  setup doc for whoever's running the Firebase project.
 - As Maintenance: ⚙ Settings lets you set the site name and add the Areas
   and Rooms for this hotel. Do this once before anyone else logs jobs —
   housekeeping can only report against rooms that already exist.
@@ -237,18 +242,21 @@ working with no signal once it's loaded once.
   job back as "new" if you looked at it but never opened the
   notifications panel, since that's the only part that's actually
   saved.
-- Maintenance logs a new job through a short **3-step wizard** (tap the
-  ➕ button, or Home → New Job) — Area, then Room (filtered to that
-  area), then the issue details (Reported by, an optional Quick pick,
-  and a free-text description) — one screen at a time instead of a
-  single page of fields. Back/Next move between steps; the last step's
-  button becomes **Save job**. Editing an existing job still opens the
+- Maintenance and Management log a new job through a short **3-step
+  wizard** (tap the ➕ button, or Home → New Job) — Area, then Room
+  (filtered to that area), then the issue details (Reported by, an
+  optional Quick pick, and a free-text description) — one screen at a
+  time instead of a single page of fields. Back/Next move between
+  steps; the last step's button becomes **Save job**. Housekeeping's ➕
+  still opens its own "Report a problem" shortcut instead (auto-tagged
+  with their department). Editing an existing job still opens the
   regular single-page sheet, since editing is correcting/adding to data
   that already exists rather than stepping through unknowns.
-- Every new job starts as **Open**, no matter who creates it — the New
-  Job wizard doesn't offer a status choice at creation. Only Maintenance
-  can move a job through its statuses afterwards (the status pill on
-  each card, or editing the job).
+- Every new job starts as **Open**, no matter who creates it — neither
+  wizard offers a status choice at creation. Maintenance, Housekeeping
+  and Management can all move a job through its statuses afterwards
+  (the status pill on each card, or editing the job); Viewer can't
+  change anything.
 - **Marking a job Closed requires a note first** — explaining what was
   actually done to fix it. Tapping the status pill straight to Closed
   opens the job instead of applying it instantly, landing you in the
@@ -293,10 +301,11 @@ working with no signal once it's loaded once.
 - Notes are a running, timestamped thread rather than one overwritable
   text box — each note you add is its own entry, permanently signed
   with who wrote it and when, so earlier notes never get lost or
-  silently replaced when someone adds a new one. Maintenance-only to
-  add (same as everything else editable); everyone can read the full
-  thread. The job list shows just the latest note as a preview
-  ("+N more" if there's a longer history) — open the job to see it all.
+  silently replaced when someone adds a new one. Any edit-capable role
+  can add one (same as everything else editable); everyone, including
+  Viewer, can read the full thread. The job list shows just the latest
+  note as a preview ("+N more" if there's a longer history) — open the
+  job to see it all.
 - The 🔔 in the header shows what's new since you last checked: for
   Maintenance, jobs someone else has reported; for whoever logged a job,
   any status change someone else made to it. It only updates while the
@@ -370,14 +379,13 @@ testing and fitting) behave correctly: it stays as the *same* job,
 carried through Open → In Progress → Awaiting Parts → Closed at whatever
 pace the work actually takes, how ever many walks re-confirm it's still
 broken in the meantime — not a fresh "Open" job every time it's
-re-spotted. When a Maintenance account runs the walk, each re-confirmation
-also appends a note to that job ("Still present on today's walk", or
-whatever freehand note you added), so the job's own note thread shows
-the timeline. A Housekeeping-role walk (night staff/duty managers) skips
-that note — Housekeeping can't edit an existing job (see the security
-rules explainer above) — but Walk History still records that the fault
-was found again that day, which is where to check if a job's own notes
-don't mention it. Only a genuinely new occurrence, logged after the
+re-spotted. Either a Maintenance or a Housekeeping-role account running
+the walk (both can edit jobs) appends a note to that job on
+re-confirmation ("Still present on today's walk", or whatever freehand
+note you added), so the job's own note thread shows the timeline —
+Walk History also records that the fault was found again that day
+regardless, which is where to check if a job's own notes don't mention
+it. Only a genuinely new occurrence, logged after the
 previous one is marked Closed, starts a new job — this only matches
 faults picked from the Walk Faults checklist; a freehand "Walk note" is
 never de-duplicated, since two different days' free text is usually
@@ -407,7 +415,8 @@ floor-by-floor breakdown (an "All clear" badge, or the faults found and
 any note). Crucially, **finishing a walk records it even when every
 floor is all clear** — so this is also your proof a walk actually
 happened on a given day, not just a log of faults. Visible to everyone
-signed in (including Management), since it's read-only.
+signed in (including Viewer), even though only Maintenance and
+Housekeeping can actually log a walk.
 
 Each floor also gets its own **completion timestamp**, stamped the
 moment you tap "Next floor" (or "Finish walk" on the last one) — shown
@@ -459,10 +468,11 @@ compliance schedule wrong is worse than not automating it at all.
 
 ### Reports
 
-The bar-chart icon on Home (Maintenance and Management) — everything
-here is computed on the fly from jobs/walks/PPM data already loaded in
-the app, nothing extra synced from Firestore, and it's screen-only for
-now (no print or export/CSV yet, might follow later if needed).
+The bar-chart tile on Home (Maintenance, Management and Viewer) —
+everything here is computed on the fly from jobs/walks/PPM data already
+loaded in the app, nothing extra synced from Firestore, and it's
+screen-only for now (no print or export/CSV yet, might follow later if
+needed).
 
 **Summary** — a period picker (last 7 / 30 / 90 days / all time)
 plus: how many jobs are outstanding right now (not period-scoped, that's
@@ -497,10 +507,10 @@ wouldn't surface on its own.
 **Everything in Reports drills down.** A stat tile, a bar in the
 area/department breakdown, a room, an issue — tap any of them to see
 the actual jobs behind that number, then tap one of those to open it
-properly (full edit for Maintenance, view-only for Management, same as
-opening it from the main job list). The Walks and PPM stat tiles drill
-into Walk History and the PPM list themselves rather than a jobs view,
-since those aren't jobs.
+properly (full edit for Maintenance/Housekeeping/Management, view-only
+for Viewer, same as opening it from the main job list). The Walks and
+PPM stat tiles drill into Walk History and the PPM list themselves
+rather than a jobs view, since those aren't jobs.
 
 ## Adding someone new, or rotating/revoking a PIN
 

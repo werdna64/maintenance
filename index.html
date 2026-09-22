@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.48">
+<link rel="stylesheet" href="style.css?v=0.1.49">
 </head>
 <body>
 
@@ -195,7 +195,7 @@
   </div>
 </div>
 
-<!-- Job sheet (maintenance: full edit. others: read-only view) -->
+<!-- Job sheet (maintenance/housekeeping/management: full edit. viewer: read-only) -->
 <div class="sheet-backdrop" id="sheetBackdrop">
   <div class="sheet">
     <h2 id="sheetTitle">New job</h2>
@@ -592,7 +592,7 @@
 <div class="sheet-backdrop" id="settingsDepartmentsBackdrop">
   <div class="sheet">
     <h2>Departments</h2>
-    <p class="settings-hint">Who a job can be logged on behalf of — Housekeeping's own reports and Fire &amp; Security Walk findings are tagged automatically; this list is for the "Reported by" picker when Maintenance logs something for another department (e.g. a call from Reception).</p>
+    <p class="settings-hint">Who a job can be logged on behalf of — Housekeeping's own reports and Fire &amp; Security Walk findings are tagged automatically; this list is for the "Reported by" picker when Maintenance or Management logs something for another department (e.g. a call from Reception).</p>
     <div class="tag-list" id="departmentTagList"></div>
     <div class="row2">
       <div class="field" style="margin-bottom:0;">
@@ -739,8 +739,10 @@
         <li>It's automatically tagged with your department and lands in
         the list as <strong>Open</strong> — Maintenance picks it up from
         there. You'll get a 🔔 if its status changes.</li>
-        <li>You can't edit or delete a report once submitted — if you
-        made a mistake, mention it to Maintenance directly.</li>
+        <li>Made a mistake? Tap the job in the list to fix it — you can
+        edit any job's details, notes and status, same as everyone
+        else with an edit-capable role. You just can't delete one —
+        ask Maintenance for that.</li>
       </ul>
     </div>
 
@@ -853,15 +855,34 @@
 
     <div class="settings-section">
       <h3>Management</h3>
+      <ul>
+        <li>Can log and edit jobs just like Maintenance — tap
+        <strong>+</strong> (or the New Job tile on Home) for the same
+        3-step wizard, tap any job to edit it, tap the status pill to
+        cycle it, add notes.</li>
+        <li>No <strong>Delete</strong>, and no access to
+        <strong>Settings</strong> or <strong>PPM</strong> — those stay
+        Maintenance-only.</li>
+        <li>No Fire &amp; Security Walk button — walks are still run by
+        Maintenance and Housekeeping/night staff only.</li>
+        <li><strong>Reports</strong> and <strong>Walk History</strong>
+        are both available — same views described under Maintenance
+        above.</li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <h3>Viewer</h3>
       <p>Read-only — a live dashboard of what's outstanding, nothing to
-      fill in.</p>
+      fill in. For anyone who wants oversight without the ability to
+      change anything.</p>
       <ul>
         <li>See the same job list and counts everyone else does,
         filtered and searched the same way.</li>
         <li>No editing, no New Job button — pass anything that needs
-        raising to Housekeeping or Maintenance.</li>
-        <li><strong>Reports</strong> is also available — same Summary
-        and Faults by Room views described under Maintenance above.</li>
+        raising to someone who can act on it.</li>
+        <li><strong>Reports</strong> and <strong>Walk History</strong>
+        are both available too.</li>
       </ul>
     </div>
 
@@ -891,7 +912,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.48"></script>
-<script src="app.js?v=0.1.48"></script>
+<script src="db.js?v=0.1.49"></script>
+<script src="app.js?v=0.1.49"></script>
 </body>
 </html>

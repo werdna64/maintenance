@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.48';
+const APP_VERSION = '0.1.49';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -33,6 +33,15 @@ let currentRole = null;
 let currentUser = null;   // { uid, role, name, department }
 let sheetReadOnly = false;
 let lastSeenAt = null;
+
+// Every role except viewer can log and edit jobs (fields, status,
+// notes) — only maintenance can delete one, or touch Settings/PPM.
+// "viewer" is the read-only role for anyone who wants oversight
+// without the ability to change anything.
+const JOB_EDIT_ROLES = ['maintenance', 'housekeeping', 'management'];
+function canEditJobs(){
+  return JOB_EDIT_ROLES.includes(currentRole);
+}
 
 let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
 
@@ -244,10 +253,13 @@ function applyRolePermissions(role){
 
   // FAB's onclick is role-based and set once here; whether it's actually
   // visible also depends on which screen is showing — see showView().
-  if(role === 'maintenance'){
-    el('fabAdd').onclick = ()=>openJobWizard();
-  } else if(role === 'housekeeping'){
+  // Housekeeping keeps its own quick "Report a problem" flow (auto-tags
+  // their department); everyone else who can create a job uses the
+  // full New Job wizard.
+  if(role === 'housekeeping'){
     el('fabAdd').onclick = ()=>openReportSheet();
+  } else if(JOB_EDIT_ROLES.includes(role)){
+    el('fabAdd').onclick = ()=>openJobWizard();
   }
 }
 
@@ -286,7 +298,15 @@ function homeTilesForRole(role){
       { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' }
     ];
   }
-  // management
+  if(role === 'management'){
+    return [
+      { icon: HOME_ICONS.newJob, label: 'New Job', action: 'newJob' },
+      { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
+      { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
+      { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' }
+    ];
+  }
+  // viewer — read-only oversight, no way to create or change anything
   return [
     { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
     { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
@@ -324,7 +344,7 @@ function showView(view){
   el('homeScreen').style.display = showJobs ? 'none' : '';
   el('controls').style.display = showJobs ? '' : 'none';
   el('list').style.display = showJobs ? '' : 'none';
-  el('fabAdd').style.display = (showJobs && (currentRole === 'maintenance' || currentRole === 'housekeeping')) ? '' : 'none';
+  el('fabAdd').style.display = (showJobs && JOB_EDIT_ROLES.includes(currentRole)) ? '' : 'none';
   if(!showJobs) renderHome();
 }
 
@@ -676,7 +696,7 @@ function render(){
         const card = document.createElement('div');
         card.className = 'card';
         const statusClass = 'status-' + j.status.replace(/ /g,'-');
-        const canEdit = currentRole === 'maintenance';
+        const canEdit = canEditJobs();
         const noteEntries = normalizeNotes(j);
         const lastNote = noteEntries[noteEntries.length - 1];
         const plaqueClass = 'plaque' + (j.room.length > 7 ? ' long' : '');
@@ -731,7 +751,7 @@ function stampAudit(job, isNew){
 }
 
 async function cycleStatus(j){
-  if(currentRole !== 'maintenance') return;
+  if(!canEditJobs()) return;
   const idx = STATUSES.indexOf(j.status);
   const nextStatus = STATUSES[(idx+1) % STATUSES.length];
   if(nextStatus === 'Done'){
@@ -751,10 +771,11 @@ async function cycleStatus(j){
   toast(`${j.room} → ${jobStatusLabel(j.status)}`);
 }
 
-// ---------------- job sheet (maintenance: edit, others: view) ----------------
+// ---------------- job sheet (job-edit roles: edit, viewer: read-only) ----------------
 
 function openJobSheet(job){
-  const canEdit = currentRole === 'maintenance';
+  const canEdit = canEditJobs();
+  const canDelete = currentRole === 'maintenance';
   sheetReadOnly = !canEdit;
   editingId = job ? job.id : null;
   if(job && !viewedJobIds.has(job.id)){
@@ -774,7 +795,7 @@ function openJobSheet(job){
   el('f_status').value = job ? job.status : 'Open';
   el('f_source').value = job ? (job.source||'') : (currentUser.department || '');
   // New jobs always start Open — status only becomes changeable once a
-  // job exists, and only maintenance can change it (cycle button or here).
+  // job exists, and only job-edit roles can change it (cycle button or here).
   el('statusField').style.display = job ? '' : 'none';
 
   if(job && job.createdByName){
@@ -795,7 +816,7 @@ function openJobSheet(job){
   ['f_area','f_room','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
-  el('deleteBtn').style.display = (job && canEdit) ? 'block' : 'none';
+  el('deleteBtn').style.display = (job && canDelete) ? 'block' : 'none';
   el('saveBtn').style.display = canEdit ? 'block' : 'none';
   el('cancelBtn').textContent = canEdit ? 'Cancel' : 'Close';
   el('sheetBackdrop').classList.add('open');
@@ -904,7 +925,7 @@ function renderNotesList(job){
 }
 
 async function handleAddNote(){
-  if(currentRole !== 'maintenance' || !editingId) return;
+  if(!canEditJobs() || !editingId) return;
   const text = el('f_newNote').value.trim();
   if(!text) return;
   const job = jobs.find(j=>j.id===editingId);
@@ -943,7 +964,7 @@ async function ensureRoomExists(number, area){
 }
 
 async function handleSaveJob(){
-  if(currentRole !== 'maintenance') return;
+  if(!canEditJobs()) return;
   const room = el('f_room').value.trim();
   if(!room){ toast('Room is required'); return; }
 
@@ -1434,12 +1455,11 @@ async function createWalkJob(room, issue, note){
 async function logWalkFinding(room, issue, note){
   const existing = jobs.find(j => j.room === room && j.issue === issue && j.status !== 'Done');
   if(existing){
-    // Only Maintenance can update an existing job (firestore.rules) —
-    // a Maintenance-conducted walk appends a "still present" note; a
-    // Housekeeping-role walk (covers night staff/duty managers) simply
-    // doesn't touch the job, since it can't. Either way the walk's own
-    // record (Walk History) still shows the fault was found again today.
-    if(currentRole === 'maintenance'){
+    // Both roles that can run a walk (maintenance, housekeeping) can
+    // now update an existing job, so either appends a "still present"
+    // note here. The walk's own record (Walk History) shows the fault
+    // was found again today either way.
+    if(canEditJobs()){
       const notes = normalizeNotes(existing);
       notes.push({
         text: note || "Still present on today's walk",

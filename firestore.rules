@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Maintenance Tracker — Firestore Security Rules
-// Rules version: 1 (2026-09-08)
+// Rules version: 2 (2026-09-22)
 //
 // Bump the number and date above by one whenever this file changes, so
 // after pasting into Firebase console → Firestore → Rules, you can
@@ -39,6 +39,17 @@ service cloud.firestore {
 
     function isHousekeeping() {
       return signedIn() && role() == 'housekeeping';
+    }
+
+    function isManagement() {
+      return signedIn() && role() == 'management';
+    }
+
+    // Any role that can log/edit a job — everyone except viewer, the
+    // read-only role for oversight without the ability to change
+    // anything.
+    function canEditJobs() {
+      return isMaintenance() || isHousekeeping() || isManagement();
     }
 
     // A new job must be honestly attributed to whoever is actually
@@ -112,17 +123,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Jobs: maintenance has full control. Housekeeping can log a new
-    // problem report but can't edit or delete anything (including their
-    // own reports) — corrections go through maintenance. Everyone signed
-    // in (including management, read-only) can read the list. Create and
+    // Jobs: every role except viewer can log and edit a job — maintenance,
+    // housekeeping and management all have full read/write on the job
+    // itself (fields, status, notes). Only maintenance can delete one.
+    // Everyone signed in (including viewer) can read the list. Create and
     // update both require honest self-attribution (see functions above)
     // so the "who did what, when" trail can't be forged by a client
     // talking to Firestore directly instead of through the app's UI.
     match /jobs/{jobId} {
       allow read: if signedIn();
-      allow create: if (isMaintenance() || isHousekeeping()) && isHonestJobCreate();
-      allow update: if isMaintenance() && isHonestJobUpdate();
+      allow create: if canEditJobs() && isHonestJobCreate();
+      allow update: if canEditJobs() && isHonestJobUpdate();
       allow delete: if isMaintenance();
     }
 
