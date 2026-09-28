@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.50';
+const APP_VERSION = '0.1.51';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -863,6 +863,11 @@ async function handleCancelJobWizard(){
 
 function renderJobWizardStep(){
   el('njProgress').textContent = `Step ${njStep + 1} of ${NJ_STEP_LABELS.length} — ${NJ_STEP_LABELS[njStep]}`;
+  // Once you've moved past picking Area/Room, those fields are hidden —
+  // this line keeps them in view so it's obvious where the job you're
+  // about to save is actually against.
+  const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : ''].filter(Boolean);
+  el('njSummary').textContent = picked.join(' · ');
   el('njStepArea').style.display = njStep === 0 ? '' : 'none';
   el('njStepRoom').style.display = njStep === 1 ? '' : 'none';
   el('njStepIssue').style.display = njStep === 2 ? '' : 'none';
