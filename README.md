@@ -246,12 +246,15 @@ working with no signal once it's loaded once.
   wizard** (tap the ➕ button, or Home → New Job) — Area, then Room
   (filtered to that area), then the issue details (Reported by, an
   optional Quick pick, and a free-text description) — one screen at a
-  time instead of a single page of fields. Back/Next move between
-  steps; the last step's button becomes **Save job**. Housekeeping's ➕
-  still opens its own "Report a problem" shortcut instead (auto-tagged
-  with their department). Editing an existing job still opens the
-  regular single-page sheet, since editing is correcting/adding to data
-  that already exists rather than stepping through unknowns.
+  time instead of a single page of fields. Picking an Area or Room
+  moves straight to the next step on its own, so it's a couple of taps
+  rather than tap-then-confirm each time; Back/Next are still there to
+  move between steps manually (e.g. to double-check a choice), and the
+  last step's button becomes **Save job**. Housekeeping's ➕ still opens
+  its own "Report a problem" shortcut instead (auto-tagged with their
+  department). Editing an existing job still opens the regular
+  single-page sheet, since editing is correcting/adding to data that
+  already exists rather than stepping through unknowns.
 - Every new job starts as **Open**, no matter who creates it — neither
   wizard offers a status choice at creation. Maintenance, Housekeeping
   and Management can all move a job through its statuses afterwards

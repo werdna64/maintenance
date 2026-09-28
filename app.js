@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.49';
+const APP_VERSION = '0.1.50';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -876,18 +876,32 @@ function njGoBack(){
   renderJobWizardStep();
 }
 
+// Picking an area or room is a one-tap choice with only one sensible
+// next move, so both auto-advance the wizard instead of making people
+// tap Next again — Next/Back still work as a manual fallback (e.g.
+// re-opening a step to double-check a choice).
+function njAdvanceFromArea(){
+  if(!el('nj_area').value) return;
+  populateRoomSelect('nj_room', 'nj_area');
+  njStep = 1;
+  renderJobWizardStep();
+}
+
+function njAdvanceFromRoom(){
+  if(!el('nj_room').value) return;
+  njStep = 2;
+  renderJobWizardStep();
+}
+
 async function njGoNext(){
   if(njStep === 0){
     if(!el('nj_area').value){ toast('Select an area'); return; }
-    populateRoomSelect('nj_room', 'nj_area');
-    njStep = 1;
-    renderJobWizardStep();
+    njAdvanceFromArea();
     return;
   }
   if(njStep === 1){
     if(!el('nj_room').value){ toast('Select a room'); return; }
-    njStep = 2;
-    renderJobWizardStep();
+    njAdvanceFromRoom();
     return;
   }
   await handleSaveNewJob();
@@ -2469,7 +2483,8 @@ on('f_issuePreset', 'change', ()=>{
 on('cancelBtn', 'click', closeJobSheet);
 on('saveBtn', 'click', handleSaveJob);
 
-on('nj_area', 'change', ()=>{ populateRoomSelect('nj_room', 'nj_area'); });
+on('nj_area', 'change', njAdvanceFromArea);
+on('nj_room', 'change', njAdvanceFromRoom);
 on('nj_issuePreset', 'change', ()=>{
   if(el('nj_issuePreset').value) el('nj_issue').value = el('nj_issuePreset').value;
 });
