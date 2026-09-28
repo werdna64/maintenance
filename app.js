@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.52';
+const APP_VERSION = '0.1.53';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -868,6 +868,7 @@ function renderJobWizardStep(){
   // about to save is actually against.
   const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : ''].filter(Boolean);
   el('njSummary').textContent = picked.join(' · ');
+  el('njSummary').style.display = picked.length ? '' : 'none';
   el('njStepArea').style.display = njStep === 0 ? '' : 'none';
   el('njStepRoom').style.display = njStep === 1 ? '' : 'none';
   el('njStepIssue').style.display = njStep === 2 ? '' : 'none';

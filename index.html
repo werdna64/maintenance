@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.52">
+<link rel="stylesheet" href="style.css?v=0.1.53">
 </head>
 <body>
 
@@ -151,10 +151,8 @@
      unknowns, so it doesn't fit the same wizard shape. -->
 <div class="sheet-backdrop" id="jobWizardBackdrop">
   <div class="sheet">
-    <div class="nj-title-row">
-      <h2>New job</h2>
-      <div class="nj-summary" id="njSummary"></div>
-    </div>
+    <h2>New job</h2>
+    <div class="nj-summary" id="njSummary"></div>
     <div class="walk-progress" id="njProgress"></div>
 
     <div class="field" id="njStepArea">
@@ -800,10 +798,10 @@
         the issue details (Reported by, Quick pick, description) — one
         step at a time. Picking an Area or Room jumps straight to the
         next step; Back/Next are there too for moving between steps
-        manually. Once picked, Area/Room stay visible next to the
-        "New job" title so you don't lose track of which job you're
-        on. The last step saves the job. Editing an existing job
-        still opens the usual single-page sheet.</li>
+        manually. Once picked, Area/Room stay visible on their own
+        line under the "New job" title so you don't lose track of
+        which job you're on. The last step saves the job. Editing an
+        existing job still opens the usual single-page sheet.</li>
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
@@ -918,7 +916,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.52"></script>
-<script src="app.js?v=0.1.52"></script>
+<script src="db.js?v=0.1.53"></script>
+<script src="app.js?v=0.1.53"></script>
 </body>
 </html>
