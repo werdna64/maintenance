@@ -250,10 +250,10 @@ working with no signal once it's loaded once.
   moves straight to the next step on its own, so it's a couple of taps
   rather than tap-then-confirm each time; Back/Next are still there to
   move between steps manually (e.g. to double-check a choice). Once
-  Area/Room are picked, a small summary line stays visible under the
-  step count so you don't lose track of which job you're on after
-  those fields scroll out of view. The last step's button becomes
-  **Save job**. Housekeeping's ➕ still opens its own "Report a
+  Area/Room are picked, they stay visible as a summary next to the
+  "New job" title, so you don't lose track of which job you're on
+  after those fields scroll out of view. The last step's button
+  becomes **Save job**. Housekeeping's ➕ still opens its own "Report a
   problem" shortcut instead (auto-tagged with their
   department). Editing an existing job still opens the regular
   single-page sheet, since editing is correcting/adding to data that

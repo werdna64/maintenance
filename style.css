@@ -387,6 +387,11 @@ header h1{
   max-height:88vh; overflow-y:auto;
 }
 .sheet h2{margin:0 0 14px; font-size:18px;}
+.nj-title-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+.nj-title-row h2{margin:0 0 14px;}
+.nj-summary{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;
+  color:var(--ink-soft); text-align:right; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; max-width:55%;}
 .walk-progress{
   font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em;
   text-transform:uppercase; color:var(--ink-soft); margin-bottom:4px;
