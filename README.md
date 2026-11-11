@@ -560,6 +560,17 @@ normal login screen shows first; the link only takes effect once
 you're actually in the app. A Viewer-role account gets a toast
 explaining it can't log a job rather than anything silently failing.
 
+### Linking back the other way
+
+Once the model has its own address (e.g. hosted on Cloudflare Pages
+behind Cloudflare Access — see "What this doesn't include yet" below
+for why it isn't on GitHub Pages too), paste it into ⚙ Settings → Site
+→ **3D model link**. A **3D Model** tile then appears on Home for
+every role, opening that link in a new tab — the model's own login
+(Cloudflare Access) is what actually controls who gets in, same as
+today; this app has no say over that and doesn't need to. Leave the
+field blank to hide the tile again.
+
 ### The `assets` collection
 
 Each tappable item in the model corresponds to one document in a new
@@ -633,11 +644,12 @@ its own future piece of work with real decisions attached:
 - **Live two-way status** (the model colouring an item red while it has
   an open job) — would need the model itself to read Firestore, which
   is a bigger integration than a one-way link.
-- **Moving the model off GitHub Pages behind its own login** — a
-  hosting/infrastructure decision for whoever owns that project, not
-  something this app's codebase can decide on its own behalf. Get that
-  approved by the hotel GM/IT before any building-layout data goes
-  anywhere outside company systems.
+- **Moving the model's own hosting** (to Cloudflare Pages + Access,
+  behind its own login, since it shows the hotel's layout/plant
+  rooms/CCTV positions and shouldn't be a public link) — done outside
+  this repo entirely, on whichever account/project holds the model.
+  Once it's live, its address goes in ⚙ Settings → Site → 3D model link
+  (above) — nothing else here changes.
 
 ## Adding someone new, or rotating/revoking a PIN
 

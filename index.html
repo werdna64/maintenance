@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.54">
+<link rel="stylesheet" href="style.css?v=0.1.55">
 </head>
 <body>
 
@@ -557,6 +557,11 @@
       <input id="s_siteCode" type="text" placeholder="e.g. SHF" maxlength="8" style="text-transform:uppercase;">
       <p class="settings-hint">Short code used on every job's reference number (e.g. <strong>SHF</strong>-000123). Changing it only affects jobs logged from now on — existing job numbers don't change.</p>
     </div>
+    <div class="field">
+      <label>3D model link</label>
+      <input id="s_modelUrl" type="url" placeholder="https://your-model.pages.dev">
+      <p class="settings-hint">The hotel's 3D model, hosted separately (e.g. on Cloudflare Pages, behind its own login). Once set, a "3D Model" tile appears on Home for everyone to open it — leave blank to hide that tile.</p>
+    </div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="closeSettingsSiteBtn">Close</button>
     </div>
@@ -733,6 +738,10 @@
         <li>The clock icon opens <strong>Walk History</strong> — every
         Fire &amp; Security Walk that's been done, grouped by day. Everyone
         can view this, including Management.</li>
+        <li>A <strong>3D Model</strong> tile appears on Home once
+        Maintenance has set a link under ⚙ Settings → Site — opens the
+        hotel's 3D model in a new tab (its own separate login, not this
+        app's).</li>
       </ul>
     </div>
 
@@ -925,7 +934,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.54"></script>
-<script src="app.js?v=0.1.54"></script>
+<script src="db.js?v=0.1.55"></script>
+<script src="app.js?v=0.1.55"></script>
 </body>
 </html>

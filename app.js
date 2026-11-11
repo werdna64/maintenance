@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.54';
+const APP_VERSION = '0.1.55';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -280,12 +280,14 @@ const HOME_ICONS = {
   history: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 16 14"></polyline></svg>`,
   ppm: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
   reports: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>`,
+  model3d: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`,
   settings: `⚙`
 };
 
 function homeTilesForRole(role){
+  let tiles;
   if(role === 'maintenance'){
-    return [
+    tiles = [
       { icon: HOME_ICONS.newJob, label: 'New Job', action: 'newJob' },
       { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
       { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' },
@@ -294,28 +296,34 @@ function homeTilesForRole(role){
       { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' },
       { icon: HOME_ICONS.settings, label: 'Settings', action: 'settings' }
     ];
-  }
-  if(role === 'housekeeping'){
-    return [
+  } else if(role === 'housekeeping'){
+    tiles = [
       { icon: HOME_ICONS.newJob, label: 'Report a Problem', action: 'report' },
       { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
       { icon: HOME_ICONS.walk, label: 'Fire & Security Walk', action: 'walk' }
     ];
-  }
-  if(role === 'management'){
-    return [
+  } else if(role === 'management'){
+    tiles = [
       { icon: HOME_ICONS.newJob, label: 'New Job', action: 'newJob' },
       { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
       { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
       { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' }
     ];
+  } else {
+    // viewer — read-only oversight, no way to create or change anything
+    tiles = [
+      { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
+      { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
+      { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' }
+    ];
   }
-  // viewer — read-only oversight, no way to create or change anything
-  return [
-    { icon: HOME_ICONS.list, label: 'Job List', action: 'jobs' },
-    { icon: HOME_ICONS.history, label: 'Walk History', action: 'walkHistory' },
-    { icon: HOME_ICONS.reports, label: 'Reports', action: 'reports' }
-  ];
+  // The 3D model is hosted (and logged into) entirely separately from
+  // this app — this tile is just a convenience shortcut, shown to
+  // every role once a link is set, and hidden again if it's cleared.
+  if(config.modelUrl){
+    tiles = [...tiles, { icon: HOME_ICONS.model3d, label: '3D Model', action: 'model3d' }];
+  }
+  return tiles;
 }
 
 function handleHomeTile(action){
@@ -327,6 +335,7 @@ function handleHomeTile(action){
   else if(action === 'ppm'){ openPpmList(); }
   else if(action === 'reports'){ openReports(); }
   else if(action === 'settings'){ openSettings(); }
+  else if(action === 'model3d'){ if(config.modelUrl) window.open(config.modelUrl, '_blank', 'noopener'); }
 }
 
 function renderHome(){
@@ -2342,7 +2351,7 @@ function closeReports(){
 const SETTINGS_TILES = [
   { id: 'settingsSiteBackdrop', label: 'Site',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`,
-    onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; el('s_siteCode').value = config.siteCode || ''; } },
+    onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; el('s_siteCode').value = config.siteCode || ''; el('s_modelUrl').value = config.modelUrl || ''; } },
   { id: 'settingsAreasBackdrop', label: 'Areas',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`,
     onOpen: renderAreaTags },
@@ -2606,7 +2615,9 @@ async function handleBulkImportRooms(){
 async function handleSaveSiteName(){
   config.siteName = el('s_siteName').value.trim() || 'Maintenance Tracker';
   config.siteCode = el('s_siteCode').value.trim().toUpperCase() || 'JOB';
+  config.modelUrl = el('s_modelUrl').value.trim();
   await DB.setConfig(config);
+  renderHome(); // so the 3D Model tile appears/disappears immediately
 }
 
 // ---------------- wiring ----------------
@@ -2717,6 +2728,7 @@ on('addRoomBtn', 'click', handleAddRoom);
 on('bulkImportRoomsBtn', 'click', handleBulkImportRooms);
 on('s_siteName', 'blur', handleSaveSiteName);
 on('s_siteCode', 'blur', handleSaveSiteName);
+on('s_modelUrl', 'blur', handleSaveSiteName);
 
 // ---------------- init ----------------
 
