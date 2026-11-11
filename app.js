@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.53';
+const APP_VERSION = '0.1.54';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -20,9 +20,10 @@ function jobStatusLabel(status){
 
 let jobs = [];
 let rooms = [];      // { id, number, area }
+let assets = [];     // { assetKey, area, room, name, type, parentKey, active } — see README's "3D model integration"
 let walks = [];       // completed Fire & Security Walk sessions
 let ppmTasks = [];    // planned preventative maintenance schedules
-let config = { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
+let config = { siteName: "Maintenance Tracker", siteCode: "JOB", areas: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
 let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
 let expandedRoomAreas = new Set(); // same, for the Settings > Rooms list
@@ -43,7 +44,7 @@ function canEditJobs(){
   return JOB_EDIT_ROLES.includes(currentRole);
 }
 
-let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
+let unsubJobs = null, unsubRooms = null, unsubAssets = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
 
 const el = id => document.getElementById(id);
 
@@ -232,15 +233,18 @@ async function handleLogin(){
 async function handleLogout(){
   if(unsubJobs) unsubJobs();
   if(unsubRooms) unsubRooms();
+  if(unsubAssets) unsubAssets();
   if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
   if(unsubWalks) unsubWalks();
   if(unsubPpmTasks) unsubPpmTasks();
-  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = unsubPpmTasks = null;
+  unsubJobs = unsubRooms = unsubAssets = unsubConfig = unsubLastSeen = unsubWalks = unsubPpmTasks = null;
   lastSeenAt = null;
   lastAlertedTime = null; // a different person may sign in next on this device
   viewedJobIds = new Set();
   currentView = 'home';
+  configLoaded = roomsLoaded = assetsLoaded = false;
+  deepLinkApplied = false;
   clearWalkDraft(); // same reasoning — don't hand the next person on this device someone else's half-finished walk
   await DB.signOut();
 }
@@ -354,19 +358,29 @@ function showView(view){
 // everything else operational — the login screen shows a generic name
 // rather than exposing the real site name (and areas/common issues) to
 // anyone who finds the public repo's Firebase project, unauthenticated.
+// Set once each of config/rooms/assets has had its first snapshot since
+// sign-in — the 3D-model deep link (see maybeApplyDeepLink() below)
+// needs all three loaded before it can resolve an asset key against a
+// real area/room, so it waits for this rather than firing on whichever
+// listener happens to come back first.
+let configLoaded = false, roomsLoaded = false, assetsLoaded = false;
+let deepLinkApplied = false;
+
 function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
-  unsubRooms = DB.onRoomsChange(list => { rooms = list; renderAreaSelects(); renderRoomSelect(); render(); });
+  unsubRooms = DB.onRoomsChange(list => { rooms = list; roomsLoaded = true; renderAreaSelects(); renderRoomSelect(); render(); maybeApplyDeepLink(); });
+  unsubAssets = DB.onAssetsChange(list => { assets = list; assetsLoaded = true; maybeApplyDeepLink(); });
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Maintenance Tracker", areas: [], commonIssues: [], departments: [], walkFaults: [] };
+    config = cfg || { siteName: "Maintenance Tracker", siteCode: "JOB", areas: [], commonIssues: [], departments: [], walkFaults: [] };
     if(!config.areas) config.areas = [];
     if(!config.commonIssues) config.commonIssues = [];
-    // Departments and walk faults get a sensible starter list the first
-    // time this config doc is ever seen missing them — distinct from a
-    // deliberately emptied list, which stays empty. Only maintenance can
-    // write config (see firestore.rules), so only seed from that role.
+    // Departments, walk faults and the site code get a sensible starter
+    // value the first time this config doc is ever seen missing them —
+    // distinct from a deliberately emptied/changed value, which is left
+    // alone. Only maintenance can write config (see firestore.rules), so
+    // only seed from that role.
     let needsSeed = false;
     if(!config.departments){
       config.departments = ['Housekeeping','Reception','Night Team','Duty Manager','Maintenance','Fire & Security Walk'];
@@ -376,14 +390,20 @@ function subscribeData(){
       config.walkFaults = ['Corridor lighting','P10 fault','Fire door','Fire extinguisher','Emergency lighting','Exit sign','Other'];
       needsSeed = true;
     }
+    if(!config.siteCode){
+      config.siteCode = 'JOB';
+      needsSeed = true;
+    }
     if(needsSeed && currentRole === 'maintenance'){
       DB.setConfig(config).catch(()=>{});
     }
+    configLoaded = true;
     renderHeader();
     renderAreaSelects();
     renderIssuePresetSelects();
     renderSourceSelect();
     render();
+    maybeApplyDeepLink();
   });
   unsubLastSeen = DB.onLastSeenChange(ts => {
     if(ts === null){
@@ -711,8 +731,8 @@ function render(){
             </div>
             <div class="meta">
               ${j.createdByName
-                ? `<div>Logged ${fmtDateTime(j.dateLogged)} · ${escapeHtml(j.createdByName)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`
-                : `<div>${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`}
+                ? `<div>${j.jobNumber ? escapeHtml(j.jobNumber) + ' · ' : ''}Logged ${fmtDateTime(j.dateLogged)} · ${escapeHtml(j.createdByName)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`
+                : `<div>${j.jobNumber ? escapeHtml(j.jobNumber) + ' · ' : ''}${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>`}
               ${(j.updatedByName && j.updatedAt && j.updatedAt !== j.dateLogged)
                 ? `<div>Updated ${fmtDateTime(j.updatedAt)} · ${escapeHtml(j.updatedByName)}</div>` : ''}
             </div>
@@ -799,12 +819,16 @@ function openJobSheet(job){
   el('statusField').style.display = job ? '' : 'none';
 
   if(job && job.createdByName){
+    const numberLine = job.jobNumber ? `${job.jobNumber} — ` : '';
     const createdLine = `Logged by ${job.createdByName} on ${fmtDateTime(job.dateLogged)}`;
     const hasUpdate = job.updatedByName && job.updatedAt && job.updatedAt !== job.dateLogged;
     const updatedLine = hasUpdate
       ? ` · Updated by ${job.updatedByName} on ${fmtDateTime(job.updatedAt)}` : '';
     const sourceLine = job.source ? ` · Reported by ${job.source}` : '';
-    el('sheetAudit').textContent = createdLine + updatedLine + sourceLine;
+    const assetLine = job.assetKey
+      ? ` · 3D model: ${job.assetName || job.assetKey}${job.assetUnmatched ? ' (not in asset register)' : ''}`
+      : '';
+    el('sheetAudit').textContent = numberLine + createdLine + updatedLine + sourceLine + assetLine;
   } else {
     el('sheetAudit').textContent = '';
   }
@@ -836,6 +860,15 @@ function closeJobSheet(){
 // is a couple of taps, not a session spread across floors.
 const NJ_STEP_LABELS = ['Area', 'Room', 'Issue details'];
 let njStep = 0;
+let njSubmitting = false;
+
+// Set when the wizard was opened from a 3D-model deep link (see
+// maybeApplyDeepLink() below) rather than manually — carried through to
+// the saved job so it's traceable back to the exact tapped item, even
+// though the asset key itself isn't a visible field anywhere in the UI.
+let njPendingAssetKey = null;
+let njPendingAssetName = '';
+let njPendingAssetUnmatched = false;
 
 function njHasProgress(){
   return !!(el('nj_area').value || el('nj_room').value || el('nj_issue').value.trim());
@@ -843,6 +876,9 @@ function njHasProgress(){
 
 function openJobWizard(){
   njStep = 0;
+  njPendingAssetKey = null;
+  njPendingAssetName = '';
+  njPendingAssetUnmatched = false;
   el('nj_area').value = '';
   populateRoomSelect('nj_room', 'nj_area');
   el('nj_source').value = currentUser.department || '';
@@ -861,12 +897,95 @@ async function handleCancelJobWizard(){
   closeJobWizard();
 }
 
+// ---------------- 3D model deep link ----------------
+// The 3D hotel model's "Log a job" button opens this app as a plain
+// hyperlink — no shared login, no API, nothing the model needs to
+// authenticate: ?new=1&asset=<assetKey>&source=3d-model&floor=...
+// &location=...&name=.... The model doesn't need to know whether its
+// own asset key is actually in our register; this app resolves it
+// against the assets collection (populated from the model's own export
+// by scripts/sync-assets.js — see README's "3D model integration").
+// An unrecognised or not-yet-synced key still opens a prefilled job
+// rather than failing outright, flagged so it's easy to find and match
+// up later — the link must never be a dead end.
+const DEEP_LINK_SOURCE_MAP = { '3d-model': '3D Model' };
+
+function maybeApplyDeepLink(){
+  if(deepLinkApplied) return;
+  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
+  deepLinkApplied = true; // consumed at most once per sign-in, whatever the outcome
+
+  const params = new URLSearchParams(location.search);
+  if([...params.keys()].length){
+    // Strip the query string immediately so reloading, or just leaving
+    // the tab open and coming back later, doesn't reopen the same link.
+    const cleanUrl = new URL(location.href);
+    cleanUrl.search = '';
+    history.replaceState(null, '', cleanUrl.toString());
+  }
+  if(params.get('new') !== '1') return;
+
+  if(!canEditJobs()){
+    showView('jobs');
+    toast("This account can't log jobs — ask Maintenance, Housekeeping or Management");
+    return;
+  }
+
+  const assetKey = params.get('asset') || '';
+  const fallbackFloor = params.get('floor') || '';
+  const fallbackLocation = params.get('location') || '';
+  const fallbackName = params.get('name') || '';
+  const sourceParam = params.get('source') || '';
+  if(!assetKey && !fallbackName && !fallbackLocation) return;
+
+  const asset = assetKey ? assets.find(a => a.assetKey === assetKey) : null;
+
+  showView('jobs');
+  openJobWizard();
+
+  njPendingAssetKey = assetKey || null;
+  njPendingAssetUnmatched = !asset;
+  njPendingAssetName = asset ? asset.name : fallbackName;
+
+  const mappedSource = DEEP_LINK_SOURCE_MAP[sourceParam] || sourceParam;
+  if(mappedSource && (config.departments||[]).includes(mappedSource)){
+    el('nj_source').value = mappedSource;
+  }
+
+  const area = asset ? asset.area : '';
+  const room = asset ? asset.room : '';
+  const areaResolved = area && (config.areas||[]).includes(area);
+  if(areaResolved){
+    el('nj_area').value = area;
+    njAdvanceFromArea();
+    if(room){
+      el('nj_room').value = room;
+      if(el('nj_room').value === room) njAdvanceFromRoom();
+    }
+  }
+
+  const issueBits = [];
+  if(njPendingAssetName) issueBits.push(njPendingAssetName);
+  if(!asset){
+    const where = [fallbackLocation, fallbackFloor ? `${fallbackFloor} floor` : ''].filter(Boolean).join(', ');
+    if(where) issueBits.push(where);
+    if(assetKey) issueBits.push(`not in asset register: ${assetKey}`);
+  } else if(!areaResolved){
+    issueBits.push(`expected ${[area, room].filter(Boolean).join(' · ')} — pick manually`);
+  }
+  if(issueBits.length) el('nj_issue').value = issueBits.join(' — ') + ': ';
+
+  renderJobWizardStep();
+  toast(asset ? 'Prefilled from 3D model' : 'Opened from 3D model — asset not in register yet');
+}
+
 function renderJobWizardStep(){
   el('njProgress').textContent = `Step ${njStep + 1} of ${NJ_STEP_LABELS.length} — ${NJ_STEP_LABELS[njStep]}`;
   // Once you've moved past picking Area/Room, those fields are hidden —
-  // this line keeps them in view so it's obvious where the job you're
-  // about to save is actually against.
-  const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : ''].filter(Boolean);
+  // this line keeps them (and the 3D-model item, if this came from a
+  // deep link) in view so it's obvious where the job you're about to
+  // save is actually against.
+  const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : '', njStep >= 2 ? njPendingAssetName : ''].filter(Boolean);
   el('njSummary').textContent = picked.join(' · ');
   el('njSummary').style.display = picked.length ? '' : 'none';
   el('njStepArea').style.display = njStep === 0 ? '' : 'none';
@@ -910,7 +1029,15 @@ async function njGoNext(){
     njAdvanceFromRoom();
     return;
   }
-  await handleSaveNewJob();
+  if(njSubmitting) return;
+  njSubmitting = true;
+  el('njNextBtn').disabled = true;
+  try{
+    await handleSaveNewJob();
+  } finally {
+    njSubmitting = false;
+    el('njNextBtn').disabled = false;
+  }
 }
 
 async function handleSaveNewJob(){
@@ -922,11 +1049,17 @@ async function handleSaveNewJob(){
   job.status = 'Open';
   job.source = el('nj_source').value || currentUser.department || 'Maintenance';
   job.dateClosed = '';
+  if(njPendingAssetKey){
+    job.assetKey = njPendingAssetKey;
+    job.assetName = njPendingAssetName || '';
+    job.assetUnmatched = njPendingAssetUnmatched;
+  }
   stampAudit(job, true);
 
+  job.jobNumber = await DB.claimJobNumber(config.siteCode || 'JOB');
   await DB.putJob(job);
   closeJobWizard();
-  toast('Saved');
+  toast(`Saved — ${job.jobNumber}`);
 }
 
 function renderNotesList(job){
@@ -1108,9 +1241,10 @@ async function handleSubmitReport(){
     dateClosed: ''
   };
   stampAudit(job, true);
+  job.jobNumber = await DB.claimJobNumber(config.siteCode || 'JOB');
   await DB.putJob(job);
   closeReportSheet();
-  toast('Reported — thanks!');
+  toast(`Reported — thanks! (${job.jobNumber})`);
 }
 
 // ---------------- Fire & Security Walk wizard ----------------
@@ -1457,6 +1591,7 @@ async function createWalkJob(room, issue, note){
     }];
   }
   stampAudit(job, true);
+  job.jobNumber = await DB.claimJobNumber(config.siteCode || 'JOB');
   await DB.putJob(job);
 }
 
@@ -1777,7 +1912,7 @@ async function checkPpmDue(){
     // call is still mid-loop (its own writes re-trigger the realtime
     // listener) is exactly what this guards against, so a fresh
     // uid('j') per re-entrant attempt is fine: only one ever wins.
-    await DB.claimPpmTaskAndCreateJob(task.id, job);
+    await DB.claimPpmTaskAndCreateJob(task.id, job, config.siteCode || 'JOB');
   }
 }
 
@@ -2017,7 +2152,7 @@ function openReportDrilldown(title, jobList){
             <span class="status-badge ${statusClass}">${jobStatusLabel(j.status)}</span>
           </div>
           <div class="drill-job-issue">${escapeHtml(j.issue || '(no description)')}</div>
-          <div class="drill-job-meta">${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>
+          <div class="drill-job-meta">${j.jobNumber ? escapeHtml(j.jobNumber) + ' · ' : ''}${fmtDateTime(j.dateLogged)}${j.source ? ` · ${escapeHtml(j.source)}` : ''}</div>
         </div>
       `;
     }).join('');
@@ -2207,7 +2342,7 @@ function closeReports(){
 const SETTINGS_TILES = [
   { id: 'settingsSiteBackdrop', label: 'Site',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`,
-    onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; } },
+    onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; el('s_siteCode').value = config.siteCode || ''; } },
   { id: 'settingsAreasBackdrop', label: 'Areas',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`,
     onOpen: renderAreaTags },
@@ -2470,6 +2605,7 @@ async function handleBulkImportRooms(){
 
 async function handleSaveSiteName(){
   config.siteName = el('s_siteName').value.trim() || 'Maintenance Tracker';
+  config.siteCode = el('s_siteCode').value.trim().toUpperCase() || 'JOB';
   await DB.setConfig(config);
 }
 
@@ -2580,6 +2716,7 @@ on('addWalkFaultBtn', 'click', handleAddWalkFault);
 on('addRoomBtn', 'click', handleAddRoom);
 on('bulkImportRoomsBtn', 'click', handleBulkImportRooms);
 on('s_siteName', 'blur', handleSaveSiteName);
+on('s_siteCode', 'blur', handleSaveSiteName);
 
 // ---------------- init ----------------
 

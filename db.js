@@ -39,6 +39,19 @@ firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {
 
 let currentUser = null; // { uid, role, name, department }
 
+// Shared by claimJobNumber() and claimPpmTaskAndCreateJob() below — a
+// single incrementing counter doc (config/main stays separate; this is
+// its own doc so a hot counter never contends with site-config writes).
+// Zero-padded to 6 digits (SHF-000001); past 999999 it just gets wider,
+// nothing breaks.
+async function claimNumberInTx(tx, siteCode) {
+  const counterRef = firestore.collection('counters').doc('jobs');
+  const snap = await tx.get(counterRef);
+  const next = (snap.exists ? snap.data().next : 0) + 1;
+  tx.set(counterRef, { next });
+  return `${siteCode}-${String(next).padStart(6, '0')}`;
+}
+
 const DB = {
   // ---- auth ----
   async signIn(username, pin) {
@@ -117,6 +130,17 @@ const DB = {
     await firestore.collection('rooms').doc(id).delete();
   },
 
+  // ---- assets (realtime) ----
+  // Physical items below room level (a bedside lamp, a distribution
+  // board...), keyed by a stable assetKey shared with the 3D hotel
+  // model — see README's "3D model integration" section. Populated by
+  // the scripts/sync-assets.js script, not edited from inside the app.
+  onAssetsChange(callback) {
+    return firestore.collection('assets').onSnapshot((snap) => {
+      callback(snap.docs.map(d => d.data()));
+    });
+  },
+
   // ---- walk history (realtime) ----
   onWalksChange(callback) {
     return firestore.collection('walks').onSnapshot((snap) => {
@@ -147,7 +171,7 @@ const DB = {
   // unclaimed?" read and each create a duplicate job. Returns true if
   // this call created the job, false if the task turned out to already
   // be claimed (or no longer due) by the time the transaction ran.
-  async claimPpmTaskAndCreateJob(taskId, job) {
+  async claimPpmTaskAndCreateJob(taskId, job, siteCode) {
     return await firestore.runTransaction(async (tx) => {
       const taskRef = firestore.collection('ppmTasks').doc(taskId);
       const taskSnap = await tx.get(taskRef);
@@ -155,9 +179,27 @@ const DB = {
       const task = taskSnap.data();
       if (task.activeJobId) return false;
       if (new Date(task.nextDueAt).getTime() > Date.now()) return false;
+      // Reads (task, counter) before writes (counter, job, task) —
+      // Firestore transactions require every read to happen before any
+      // write, so the job number is claimed here rather than before
+      // the transaction starts.
+      job.jobNumber = await claimNumberInTx(tx, siteCode);
       tx.set(firestore.collection('jobs').doc(job.id), job);
       tx.update(taskRef, { activeJobId: job.id });
       return true;
+    });
+  },
+
+  // A short, human-friendly reference for a job (e.g. "SHF-000123"),
+  // assigned atomically from a shared counter doc so two people saving
+  // a new job at the same moment can never collide. Call it once, right
+  // before the job's own doc is written — a job number is never reused,
+  // but a gap is possible if the job write itself then fails (e.g. the
+  // device goes offline mid-save), which is an acceptable trade-off for
+  // not needing a combined transaction at every job-creation call site.
+  async claimJobNumber(siteCode) {
+    return await firestore.runTransaction(async (tx) => {
+      return await claimNumberInTx(tx, siteCode);
     });
   },
 

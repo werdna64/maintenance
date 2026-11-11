@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Maintenance Tracker — Firestore Security Rules
-// Rules version: 2 (2026-09-22)
+// Rules version: 3 (2026-11-11)
 //
 // Bump the number and date above by one whenever this file changes, so
 // after pasting into Firebase console → Firestore → Rules, you can
@@ -156,6 +156,26 @@ service cloud.firestore {
     // PPM generates when due are ordinary /jobs documents (see above),
     // not stored here.
     match /ppmTasks/{taskId} {
+      allow read: if signedIn();
+      allow write: if isMaintenance();
+    }
+
+    // A single shared counter (counters/jobs) assigns each new job a
+    // short, human-friendly reference number (e.g. SHF-000123) —
+    // claimed atomically in a transaction by claimJobNumber() /
+    // claimPpmTaskAndCreateJob() in db.js. Only a role that can create
+    // a job ever needs to read or bump it.
+    match /counters/{counterId} {
+      allow read, write: if canEditJobs();
+    }
+
+    // Physical items below room level (a bedside lamp, a distribution
+    // board...) shown in the 3D hotel model, keyed by a stable
+    // assetKey shared with it. In practice populated by
+    // scripts/sync-assets.js using admin credentials, which bypass
+    // these rules entirely — the maintenance-only write rule here is
+    // just in case an in-app editor is ever added.
+    match /assets/{assetKey} {
       allow read: if signedIn();
       allow write: if isMaintenance();
     }

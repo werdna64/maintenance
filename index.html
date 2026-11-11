@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.53">
+<link rel="stylesheet" href="style.css?v=0.1.54">
 </head>
 <body>
 
@@ -552,6 +552,11 @@
       <label>Hotel / site name</label>
       <input id="s_siteName" type="text" placeholder="e.g. Leonardo Hotel Sheffield">
     </div>
+    <div class="field">
+      <label>Job number prefix</label>
+      <input id="s_siteCode" type="text" placeholder="e.g. SHF" maxlength="8" style="text-transform:uppercase;">
+      <p class="settings-hint">Short code used on every job's reference number (e.g. <strong>SHF</strong>-000123). Changing it only affects jobs logged from now on — existing job numbers don't change.</p>
+    </div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="closeSettingsSiteBtn">Close</button>
     </div>
@@ -714,6 +719,10 @@
         just to dismiss something you've already looked at.</li>
         <li>Tap a job to see the full detail — who logged it, when, and
         the complete note history.</li>
+        <li>Every job has a short reference number (e.g.
+        <strong>SHF-000123</strong>) shown in the list and the job's
+        detail view — handy for referring to a specific job out loud
+        or in a message.</li>
         <li>Use the search box to jump to a room number, or the status
         chips (Active / All / Open / In Progress / Awaiting Parts / Closed)
         to filter.</li>
@@ -916,7 +925,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.53"></script>
-<script src="app.js?v=0.1.53"></script>
+<script src="db.js?v=0.1.54"></script>
+<script src="app.js?v=0.1.54"></script>
 </body>
 </html>

@@ -45,6 +45,9 @@ typo doesn't have to wait for Maintenance to fix it.
 - `version.json` — current build number; app.js polls this to detect a
   stale build and prompt a reload (see "Releasing an update" below)
 - `icon-192.png`, `icon-512.png` — app icons
+- `scripts/sync-assets.js`, `package.json` — admin-only tooling for the
+  3D model integration (see "3D model integration" below); not part of
+  the deployed app itself
 
 ## One-time setup
 
@@ -517,6 +520,124 @@ properly (full edit for Maintenance/Housekeeping/Management, view-only
 for Viewer, same as opening it from the main job list). The Walks and
 PPM stat tiles drill into Walk History and the PPM list themselves
 rather than a jobs view, since those aren't jobs.
+
+## 3D model integration
+
+A separate 3D model of the hotel (built with three.js, tapping an item
+like a bedside lamp or a distribution board) can open a **Log a job**
+link straight into this app, pre-filled against that exact item. There
+is no API, no server and no shared hosting involved — the model just
+opens a normal URL, and this app (already signed in on that device)
+resolves it against its own data over the same Firestore connection
+everything else here uses.
+
+### The deep link
+
+```
+https://werdna64.github.io/maintenance/?new=1
+  &asset=SHF.5.R505.BED.LAMP-L
+  &source=3d-model
+  &floor=Fifth
+  &location=Room 505
+  &name=Left bedside lamp
+```
+
+- `new=1` — triggers the New Job wizard.
+- `asset` — the model's stable key for the tapped item. Looked up
+  against the `assets` collection (see below); if it's not found (not
+  yet synced, or genuinely new), the job still opens, pre-filled from
+  `floor`/`location`/`name` instead and flagged in the job's detail
+  view as "not in asset register" — **the link never fails outright**.
+- `source` — `3d-model` maps to a "**3D Model**" department if you add
+  one under ⚙ Settings → Departments (so jobs from the model carry a
+  "Reported by" tag like anything else); if that department doesn't
+  exist, the picker is just left blank.
+- `floor` / `location` / `name` — fallback text, only used when the
+  asset key isn't recognised.
+
+Signing in isn't bypassed — if that device isn't already signed in, the
+normal login screen shows first; the link only takes effect once
+you're actually in the app. A Viewer-role account gets a toast
+explaining it can't log a job rather than anything silently failing.
+
+### The `assets` collection
+
+Each tappable item in the model corresponds to one document in a new
+`assets` Firestore collection, keyed by its own asset key:
+
+| Field | Meaning |
+|---|---|
+| `assetKey` | Same string as the model's own key and the document ID |
+| `area` | Must match one of this app's existing Areas (⚙ Settings → Areas) |
+| `room` | Must match one of this app's existing Rooms (⚙ Settings → Rooms) |
+| `name` | Shown in the job wizard's summary line and the job's detail view |
+| `type` | Free text — `lamp`, `socket`, `ac_unit`, `db`, ... |
+| `parentKey` | Another asset's key, for containment (e.g. an AC controller's parent is the AC unit) — not yet used by the app itself, stored for later |
+| `active` | Set to `false` automatically if a later sync no longer mentions this key |
+
+Nothing in the app writes to this collection — it's populated entirely
+by `scripts/sync-assets.js` (below), run whenever the model's own
+asset export changes.
+
+### Keeping the model and the database in step
+
+`scripts/sync-assets.js` is a small Node script (not part of the
+deployed app) that reads the model's own `assets.json` export and
+upserts it into Firestore, creating any Room/Area it mentions that
+doesn't exist yet (same as adding one by hand in Settings), and
+reports any asset key that's in Firestore but no longer in the file
+(marked `active: false`, never deleted outright, so a job already
+logged against it keeps its link).
+
+**One-time setup:**
+1. Firebase console → ⚙ Project settings → Service accounts →
+   **Generate new private key**. Save the downloaded file as
+   `serviceAccountKey.json` in this repo's root — it's already
+   git-ignored. **Never commit this file** — unlike `firebase-config.js`
+   (the public client config the app itself uses), a service account
+   key bypasses `firestore.rules` entirely.
+2. `npm install` (pulls in `firebase-admin`, used only by this script).
+
+**Each time the model's export changes:**
+```
+node scripts/sync-assets.js path/to/assets.json
+```
+Expects a JSON array, one object per asset:
+```json
+[
+  { "assetKey": "SHF.5.R505.BED.LAMP-L", "area": "5th Floor", "room": "505", "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+]
+```
+
+### Job numbers
+
+Every job now gets a short reference number (e.g. `SHF-000123`) the
+moment it's logged, from any of the ways a job can be created —
+visible in the job list, the job's detail view, and Reports
+drill-downs. The prefix (`SHF` above) is set under ⚙ Settings → Site →
+**Job number prefix**; it defaults to `JOB` until you set it. Numbers
+are assigned atomically from a shared counter (a tiny Firestore
+transaction, the same technique already used elsewhere in this app to
+stop duplicate PPM jobs), so two people saving a new job at the same
+moment can never collide — a number is never reused, though a gap is
+possible if a save is interrupted right after the number is claimed.
+
+### What this doesn't include yet
+
+This covers logging a job against a specific item and getting it a
+short reference number — nothing more. Deliberately not built, each
+its own future piece of work with real decisions attached:
+
+- **Electrical circuits/breakers** (tracing a board way to its loads
+  and back) — a separate data model on top of this, not started.
+- **Live two-way status** (the model colouring an item red while it has
+  an open job) — would need the model itself to read Firestore, which
+  is a bigger integration than a one-way link.
+- **Moving the model off GitHub Pages behind its own login** — a
+  hosting/infrastructure decision for whoever owns that project, not
+  something this app's codebase can decide on its own behalf. Get that
+  approved by the hotel GM/IT before any building-layout data goes
+  anywhere outside company systems.
 
 ## Adding someone new, or rotating/revoking a PIN
 

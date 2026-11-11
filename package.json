@@ -1,0 +1,11 @@
+{
+  "name": "maintenance-tracker-scripts",
+  "private": true,
+  "description": "Admin-only tooling for the Maintenance Tracker PWA — not part of the deployed app itself (see README's \"3D model integration\" section).",
+  "scripts": {
+    "sync-assets": "node scripts/sync-assets.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

@@ -1,1 +1,10 @@
 .DS_Store
+
+# scripts/sync-assets.js needs Firebase Admin SDK access — unlike
+# firebase-config.js (the public web client config, safe to commit),
+# a service account key grants full read/write bypassing every
+# firestore.rules check and must never be committed. See README's
+# "3D model integration" section for how to get one.
+node_modules/
+serviceAccountKey.json
+*.serviceaccount.json
