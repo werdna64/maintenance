@@ -560,6 +560,19 @@ normal login screen shows first; the link only takes effect once
 you're actually in the app. A Viewer-role account gets a toast
 explaining it can't log a job rather than anything silently failing.
 
+### A reused tab, not a fresh one every tap
+
+A plain hyperlink opens a new tab/window every time it's tapped — fine
+once, but tapping several items in a row leaves a pile of them, each
+redoing the full Firebase/Firestore startup from scratch. If the model
+instead keeps one tab open (`window.open` with a fixed target name)
+and sends later taps as a `postMessage` rather than re-navigating it,
+this app applies each one in place — no reload, no new tab. A message
+is only accepted when its `event.origin` matches whatever's set in
+**3D model link** below; nothing is accepted before that's configured,
+and nothing from any other origin ever is. See `3D_MODEL_CONTEXT.md`
+for the exact message shape and a model-side code sketch.
+
 ### Linking back the other way
 
 Once the model has its own address (e.g. hosted on Cloudflare Pages

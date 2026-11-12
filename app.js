@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.56';
+const APP_VERSION = '0.1.57';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -377,8 +377,8 @@ let deepLinkApplied = false;
 
 function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
-  unsubRooms = DB.onRoomsChange(list => { rooms = list; roomsLoaded = true; renderAreaSelects(); renderRoomSelect(); render(); maybeApplyDeepLink(); });
-  unsubAssets = DB.onAssetsChange(list => { assets = list; assetsLoaded = true; maybeApplyDeepLink(); });
+  unsubRooms = DB.onRoomsChange(list => { rooms = list; roomsLoaded = true; renderAreaSelects(); renderRoomSelect(); render(); maybeApplyDeepLink(); maybeApplyPendingModelMessage(); });
+  unsubAssets = DB.onAssetsChange(list => { assets = list; assetsLoaded = true; maybeApplyDeepLink(); maybeApplyPendingModelMessage(); });
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
@@ -413,6 +413,7 @@ function subscribeData(){
     renderSourceSelect();
     render();
     maybeApplyDeepLink();
+    maybeApplyPendingModelMessage();
   });
   unsubLastSeen = DB.onLastSeenChange(ts => {
     if(ts === null){
@@ -919,32 +920,16 @@ async function handleCancelJobWizard(){
 // up later — the link must never be a dead end.
 const DEEP_LINK_SOURCE_MAP = { '3d-model': '3D Model' };
 
-function maybeApplyDeepLink(){
-  if(deepLinkApplied) return;
-  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
-  deepLinkApplied = true; // consumed at most once per sign-in, whatever the outcome
-
-  const params = new URLSearchParams(location.search);
-  if([...params.keys()].length){
-    // Strip the query string immediately so reloading, or just leaving
-    // the tab open and coming back later, doesn't reopen the same link.
-    const cleanUrl = new URL(location.href);
-    cleanUrl.search = '';
-    history.replaceState(null, '', cleanUrl.toString());
-  }
-  if(params.get('new') !== '1') return;
-
+// Shared by the URL deep link (maybeApplyDeepLink, below) and the
+// postMessage path (applyModelMessage, further down) — same fields,
+// same prefill/fallback logic, whichever way the model actually
+// delivered them.
+function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackName, sourceParam }){
   if(!canEditJobs()){
     showView('jobs');
     toast("This account can't log jobs — ask Maintenance, Housekeeping or Management");
     return;
   }
-
-  const assetKey = params.get('asset') || '';
-  const fallbackFloor = params.get('floor') || '';
-  const fallbackLocation = params.get('location') || '';
-  const fallbackName = params.get('name') || '';
-  const sourceParam = params.get('source') || '';
   if(!assetKey && !fallbackName && !fallbackLocation) return;
 
   const asset = assetKey ? assets.find(a => a.assetKey === assetKey) : null;
@@ -987,6 +972,76 @@ function maybeApplyDeepLink(){
   renderJobWizardStep();
   toast(asset ? 'Prefilled from 3D model' : 'Opened from 3D model — asset not in register yet');
 }
+
+function maybeApplyDeepLink(){
+  if(deepLinkApplied) return;
+  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
+  deepLinkApplied = true; // consumed at most once per sign-in, whatever the outcome
+
+  const params = new URLSearchParams(location.search);
+  if([...params.keys()].length){
+    // Strip the query string immediately so reloading, or just leaving
+    // the tab open and coming back later, doesn't reopen the same link.
+    const cleanUrl = new URL(location.href);
+    cleanUrl.search = '';
+    history.replaceState(null, '', cleanUrl.toString());
+  }
+  if(params.get('new') !== '1') return;
+
+  applyJobRequest({
+    assetKey: params.get('asset') || '',
+    fallbackFloor: params.get('floor') || '',
+    fallbackLocation: params.get('location') || '',
+    fallbackName: params.get('name') || '',
+    sourceParam: params.get('source') || ''
+  });
+}
+
+// Alternative to the plain URL link above: if the model keeps one tab
+// open (window.open with a fixed target name) and sends later taps via
+// postMessage instead of re-navigating it, each one applies here
+// without a full page reload — no repeated Firestore listener
+// reconnects, no pile of abandoned tabs. Trusted purely by origin,
+// matched against whatever's set in Settings -> Site -> 3D model link;
+// nothing is accepted if that's not configured. A message that arrives
+// before config/rooms/assets have loaded (e.g. the very first one,
+// right after this tab was opened) is held and applied once they have,
+// same as the URL path waits for the same three flags.
+let pendingModelMessage = null;
+
+function trustedModelOrigin(){
+  if(!config.modelUrl) return null;
+  try{ return new URL(config.modelUrl).origin; }catch(e){ return null; }
+}
+
+function applyModelMessage(data){
+  applyJobRequest({
+    assetKey: data.asset || '',
+    fallbackFloor: data.floor || '',
+    fallbackLocation: data.location || '',
+    fallbackName: data.name || '',
+    sourceParam: data.source || ''
+  });
+}
+
+function maybeApplyPendingModelMessage(){
+  if(!pendingModelMessage) return;
+  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
+  const data = pendingModelMessage;
+  pendingModelMessage = null;
+  applyModelMessage(data);
+}
+
+window.addEventListener('message', (event)=>{
+  const trusted = trustedModelOrigin();
+  if(!trusted || event.origin !== trusted) return;
+  if(!event.data || event.data.type !== 'maintdb:logJob') return;
+  if(configLoaded && roomsLoaded && assetsLoaded){
+    applyModelMessage(event.data);
+  } else {
+    pendingModelMessage = event.data; // only the latest pending one matters
+  }
+});
 
 function renderJobWizardStep(){
   el('njProgress').textContent = `Step ${njStep + 1} of ${NJ_STEP_LABELS.length} — ${NJ_STEP_LABELS[njStep]}`;

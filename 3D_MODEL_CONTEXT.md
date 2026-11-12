@@ -72,7 +72,62 @@ https://werdna64.github.io/maintenance/?new=1
 2. Should breakers become assets (so a job can be logged against "DB-HF way 10 L2")? If so, `parentKey` = the board's key. Circuit tracing beyond that is a separate future data model.
 3. Which department should "3D Model" jobs map to – add a **3D Model** department in Settings, or leave blank?
 
-## 7. Next steps
+## 7. One tab, not a new one per tap (new – MaintDB side done, model side to do)
 
-- **Model side (done in the 3D model chat / `themodel` repo):** add `assetKey` to every tappable item, send `asset=<key>` and `name=<label>` in the Log-a-job link, and export `assets.json` to the contract above.
+Each "Log a job" click currently opens the deep link with an unnamed
+target (e.g. `window.open(url, '_blank')` or a plain `<a target="_blank">`),
+so every tap spawns a brand-new tab/window – a fresh full page load
+(Firebase init, all Firestore listeners reconnecting) and a pile of
+abandoned tabs after a few taps. Two independent model-side fixes,
+either is worth doing, both together is the real cure:
+
+**Quick fix – reuse one tab:** give `window.open` a fixed target name
+instead of `_blank`, and keep the returned handle around:
+```js
+let maintdbWin = null;
+function logJob(url){
+  if(maintdbWin && !maintdbWin.closed){ maintdbWin.location.href = url; maintdbWin.focus(); }
+  else { maintdbWin = window.open(url, 'maintdb-logjob'); }
+}
+```
+Still a full page reload per tap, but only ever one tab.
+
+**Better fix – skip the reload entirely:** MaintDB now also listens for
+a `postMessage` on that same reused window, so a second/third tap on a
+different item doesn't reload it at all – the wizard just resets and
+re-prefills for the new item, same as a fresh deep link would, in
+under a second:
+```js
+let maintdbWin = null;
+function logJob({ asset, floor, location, name, source }){
+  const payload = { type: 'maintdb:logJob', asset, floor, location, name, source };
+  if(maintdbWin && !maintdbWin.closed){
+    maintdbWin.postMessage(payload, 'https://werdna64.github.io');
+    maintdbWin.focus();
+  } else {
+    const url = new URL('https://werdna64.github.io/maintenance/');
+    url.searchParams.set('new', '1');
+    Object.entries(payload).forEach(([k,v]) => { if(k !== 'type' && v) url.searchParams.set(k, v); });
+    maintdbWin = window.open(url, 'maintdb-logjob');
+  }
+}
+```
+MaintDB only accepts a message whose `event.origin` matches whatever's
+set in Settings → Site → 3D model link (`https://themodel-b4w.pages.dev`)
+– nothing arrives until that field is filled in, and nothing from any
+other origin is ever accepted. `type` must be exactly `maintdb:logJob`;
+the other fields are the same `asset`/`floor`/`location`/`name`/`source`
+as the URL link, just as object properties instead of query params.
+
+Each message applies independently and immediately replaces whatever
+was on screen in that tab – there's no "are you sure" if someone had
+started typing a note for the previous item and then taps a different
+one; that's deliberate (the whole point is tapping through several
+items quickly), so keep that in mind if it ever feels like it's
+discarding something you expected to keep.
+
+## 8. Next steps
+
+- **Model side (done in the 3D model chat / `themodel` repo):** add `assetKey` to every tappable item, send `asset=<key>` and `name=<label>` in the Log-a-job link, and export `assets.json` to the contract above. Separately, section 7 above – reuse one tab via a named `window.open` target, and ideally switch to `postMessage` for taps after the first.
 - **MaintDB side:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link; once `assets.json` exists, run `scripts/sync-assets.js` and check the drift report. No code change needed for either.
+
