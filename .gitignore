@@ -8,3 +8,8 @@
 node_modules/
 serviceAccountKey.json
 *.serviceaccount.json
+
+# The model's export — hotel layout/room data, never committed to this
+# public repo (see CLAUDE.md). Passed to scripts/sync-assets.js locally
+# only.
+assets.json
