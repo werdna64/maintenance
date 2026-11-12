@@ -41,7 +41,7 @@ An interactive three.js model of **Leonardo Hotel Sheffield**: 12 levels (Baseme
 | Job numbers `SHF-000123` | **Done** (`counters/jobs` transaction; prefix in Settings → Site) | n/a |
 | "3D Model" tile on Home | **Done** – needs the URL pasted into Settings → Site → 3D model link | Live at `https://themodel-b4w.pages.dev` |
 | Circuits / breakers, supply tracing | Not started | Board charts exist in the model; register in Claude Sheets |
-| Live open-job status in the model | Not started (needs the model to read Firestore) | Not started |
+| Live open-job status in the model | Spec written (section 9) – needs the model to read Firestore directly | Not started |
 
 ## 5. Contract the model must meet (from README)
 
@@ -130,4 +130,78 @@ discarding something you expected to keep.
 
 - **Model side (done in the 3D model chat / `themodel` repo):** add `assetKey` to every tappable item, send `asset=<key>` and `name=<label>` in the Log-a-job link, and export `assets.json` to the contract above. Separately, section 7 above – reuse one tab via a named `window.open` target, and ideally switch to `postMessage` for taps after the first.
 - **MaintDB side:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link; once `assets.json` exists, run `scripts/sync-assets.js` and check the drift report. No code change needed for either.
+
+## 9. Live status – the model reads Firestore directly (spec, not built)
+
+No production data or users yet, so this is a good time to try real
+two-way communication rather than staying one-way. The highest-value
+piece: the model colours any tapped item by whether it currently has
+an open job, read live from the same Firestore project MaintDB
+already uses – no API, no new backend, same architecture as
+everything else here.
+
+**What the model needs:**
+
+1. **The same public Firebase web config MaintDB already ships** –
+   copy the values straight out of this repo's `firebase-config.js`
+   (it's not a secret; Firestore's own rules are what actually gate
+   access, same reasoning as this file's section 3 already covers for
+   everything else).
+2. **Anonymous Authentication turned on** – Firebase console →
+   Authentication → Sign-in method → enable **Anonymous**. One console
+   toggle, nothing in code on the MaintDB side.
+3. **No `firestore.rules` change needed.** Every read the model needs
+   (`jobs`, `rooms`, `config`, `assets`, `walks`, `ppmTasks`) is gated
+   by `signedIn()` alone – `request.auth != null` – which an anonymous
+   session satisfies exactly the same as a real staff login. Writes,
+   and reads of `counters`/`deletedJobs`, stay blocked for an anonymous
+   session (those check an actual role via `/users/{uid}`, which an
+   anonymous UID never has) – correctly, since the model only ever
+   needs to read.
+
+**What to listen to:** the whole `jobs` collection, same scale
+MaintDB's own `onJobsChange` already handles – no `where` clause,
+no composite index, nothing to tune:
+
+```js
+firebase.initializeApp(FIREBASE_CONFIG); // from firebase-config.js
+firebase.auth().signInAnonymously().then(() => {
+  firebase.firestore().collection('jobs').onSnapshot(snap => {
+    const statusByAsset = new Map();
+    snap.docs.forEach(d => {
+      const job = d.data();
+      if(!job.assetKey || job.status === 'Done') return;
+      statusByAsset.set(job.assetKey, job.status); // last one wins if >1 open job shares a key
+    });
+    applyAssetColours(statusByAsset); // model's own fn: walk tappable meshes, colour by userData.assetKey
+  });
+});
+```
+
+**The real limitation, worth knowing before building this:** a job
+only carries `assetKey` if it was created *through* the model's own
+deep-link/message flow (section 7). A job logged normally in MaintDB –
+Housekeeping's "Report a problem", a Fire & Security Walk finding, a
+PPM job, or Maintenance just picking a room in the ordinary New Job
+wizard without going via the model – has no `assetKey`, so it won't
+turn that item red even though it's genuinely the same physical thing.
+Day one, this will under-report: most jobs won't have come through the
+model yet. Closing that gap needs an "Asset" picker added to MaintDB's
+own job sheet (so staff can tag one manually even when not using the
+model) – not built, a real follow-up decision, not something to assume
+into this spec.
+
+**Also worth being deliberate about:** this exposes full job documents
+to the model (issue text, notes, staff names, department – not just a
+status colour), to anything that can complete Firebase anonymous
+auth. In practice that's already gated by the same Cloudflare Access
+allow-list as the rest of the model, so it's not a new exposure in
+practice – just flagging it as a conscious choice rather than an
+accident. A tighter version (status only, no text) would need a
+maintained `assetStatus/{assetKey}` summary collection instead of
+reading `jobs` directly – real extra engineering (something has to
+keep it in sync – client-side on every save, the same way
+`counters/jobs` is maintained today, or a Cloud Function, which this
+app has deliberately avoided so far) – worth it only once this first
+version proves the idea is worth having.
 
