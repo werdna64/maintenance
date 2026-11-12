@@ -36,8 +36,8 @@ An interactive three.js model of **Leonardo Hotel Sheffield**: 12 levels (Baseme
 
 | Piece | MaintDB (this repo) | 3D model (`themodel`) |
 | --- | --- | --- |
-| Deep link `?new=1&asset=…&floor&location&name&source=3d-model` with fallback | **Done** (app.js deep-link handler) | Sends `new, site, floor, location, asset, source`. `asset` is currently the **display name**, not a key, and `name` is not sent → every job lands as "not in asset register" with fallback text. **To do.** |
-| `assets` collection keyed by `assetKey` | **Done** (rules + `scripts/sync-assets.js`) | Unique `assetKey` per tappable item and an `assets.json` export – **to do** |
+| Deep link `?new=1&asset=…&floor&location&name&source=3d-model` with fallback | **Done** (app.js deep-link handler) | **Done** — sends `new, site, floor, location, name, asset, source`; `asset` is now the unique `assetKey`, `name` the display label |
+| `assets` collection keyed by `assetKey` | **Done** (rules + `scripts/sync-assets.js`) | **Done** — every tappable item carries `userData.assetKey` (`assetKeyFor()` in `src/viewer.html`); **Export assets.json** link in the side panel (also `window.exportAssets()`) produces the file for `scripts/sync-assets.js`. Verified in a real headless-Chromium run: 11,356 unique keys, 259 distinct bedrooms, zero collisions. One open item: `FLOOR_TO_AREA`'s floor→Area-name mapping is a reasonable guess, not yet checked against MaintDB's actual Settings → Areas list (see question 1 below) |
 | Job numbers `SHF-000123` | **Done** (`counters/jobs` transaction; prefix in Settings → Site) | n/a |
 | "3D Model" tile on Home | **Done** – needs the URL pasted into Settings → Site → 3D model link | Live at `https://themodel-b4w.pages.dev` |
 | Circuits / breakers, supply tracing | Not started | Board charts exist in the model; register in Claude Sheets |
@@ -68,7 +68,7 @@ https://werdna64.github.io/maintenance/?new=1
 
 ## 6. Open questions
 
-1. What are MaintDB's exact Area names and Room naming (e.g. `5th Floor` / `505`, and for non-bedrooms like the switch room or bar)? The model's export must use them verbatim.
+1. **Now the one actually blocking a real sync.** What are MaintDB's exact Area names and Room naming (e.g. `5th Floor` / `505`, and for non-bedrooms like the switch room or bar)? Check ⚙ Settings → Areas / Rooms in the live app and compare against `themodel`'s `FLOOR_TO_AREA` map (`src/viewer.html`) and each space's `s.no`/`s.name` – update whichever side doesn't match before running `scripts/sync-assets.js` for real (it'll create new Areas/Rooms for anything that doesn't match exactly, which is recoverable but messy to clean up after the fact).
 2. Should breakers become assets (so a job can be logged against "DB-HF way 10 L2")? If so, `parentKey` = the board's key. Circuit tracing beyond that is a separate future data model.
 3. Which department should "3D Model" jobs map to – add a **3D Model** department in Settings, or leave blank?
 
@@ -128,8 +128,8 @@ discarding something you expected to keep.
 
 ## 8. Next steps
 
-- **Model side (done in the 3D model chat / `themodel` repo):** add `assetKey` to every tappable item, send `asset=<key>` and `name=<label>` in the Log-a-job link, and export `assets.json` to the contract above. Separately, section 7 above – reuse one tab via a named `window.open` target, and ideally switch to `postMessage` for taps after the first.
-- **MaintDB side:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link; once `assets.json` exists, run `scripts/sync-assets.js` and check the drift report. No code change needed for either.
+- **Model side — done:** `assetKey` on every tappable item, `asset=<key>`/`name=<label>` both sent in the Log-a-job link, and an **Export assets.json** link in the side panel. Still open: reuse one tab via a named `window.open` target and/or `postMessage` (section 7) – the MaintDB side of that is already live, the model side isn't wired up yet.
+- **MaintDB side – do next:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link if not already done. Before running a real sync: resolve open question 1 above (Area/Room names matching exactly), export `assets.json` from the model's side panel, then `node scripts/sync-assets.js path/to/assets.json` and check the drift report.
 
 ## 9. Live status – the model reads Firestore directly (spec, not built)
 
