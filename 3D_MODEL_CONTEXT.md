@@ -1,84 +1,78 @@
-# 3D Building Model – context for the Maintenance Tracker (MaintDB)
+# 3D Building Model – context for MaintDB
 
 _Last updated: 12 Nov 2026_
 
-This file tells Claude Code working on **MaintDB** (`werdna64/maintenance`) what the 3D building model is, where it lives, and how the two are meant to connect. Put it in the MaintDB repo as `docs/3D_MODEL_CONTEXT.md` and reference it from `CLAUDE.md`.
-
----
+What the 3D building model is, where it lives, and how it connects to this app. MaintDB is a static PWA on GitHub Pages with **Firebase Auth + Firestore** (no SQL, no server of its own). The app-side integration is already built – see README → "3D model integration". This file covers the model side and what is still to do.
 
 ## 1. What the 3D model is
 
 An interactive three.js model of **Leonardo Hotel Sheffield**: 12 levels (Basement, Lower Ground, Ground, 1–9), ~580 spaces, 259 bedrooms, plant rooms, the LG switch room with its distribution boards, AC condensers, doors and fire zones.
 
-- One self-contained page, `index.html` (~1.2 MB). three.js and all building data are inlined; it makes **no network requests**.
+- One self-contained page, `index.html` (~1.2 MB): three.js and all building data inlined, **no network requests**.
 - Tap a space → info panel. Fitted-out spaces and every bedroom have a **close-up view** with tappable items (lamps, WC, TV, distribution boards…).
-- Tapping an item opens an asset sheet with a **Log a job** button that deep-links into MaintDB (section 4).
+- Tapping an item opens an asset sheet with a **Log a job** button that deep-links into MaintDB.
 - Distribution boards show their circuit chart laid out like the board, with red ON / green OFF breaker flags.
 
 ## 2. Where everything lives
 
 | Thing | Location | Visibility |
 | --- | --- | --- |
-| Model source + built page | GitHub `werdna64/themodel` (branch `main`) | **Private** |
-| Live model | `https://themodel-b4w.pages.dev` (Cloudflare Pages, auto-deploys on push to `main`) | Behind **Cloudflare Access** – emailed one-time code, allow-list only |
-| MaintDB PWA | GitHub `werdna64/maintenance` → `https://werdna64.github.io/maintenance/` | **Public** |
-| Demo copy | Private claude.ai artifact | Owner only |
-| Circuit register | Claude Sheets "Leonardo Sheffield – Circuit Register" (`https://claude.ai/artifact/4MU13Te9BFeDpARWA6m8cG`) | Private |
-| Full integration brief | Claude Doc "3D Hotel Model ↔ Maintenance Tracker – Integration Brief" (`https://claude.ai/artifact/KdqRXeGMvxjEdvF8nQaQSP`) | Private |
+| Model source + built page | GitHub `werdna64/themodel` (`main`) | **Private** |
+| Live model | `https://themodel-b4w.pages.dev` – Cloudflare Pages, auto-deploys on push to `main` | Behind **Cloudflare Access** (emailed one-time code, allow-list) |
+| MaintDB | GitHub `werdna64/maintenance` → `https://werdna64.github.io/maintenance/` | **Public** repo and site; data in Firestore behind Firebase Auth |
+| Circuit register (interim) | Claude Sheets "Leonardo Sheffield – Circuit Register" | Private |
+| Integration brief (background) | Claude Doc "3D Hotel Model ↔ Maintenance Tracker – Integration Brief" – written before MaintDB's Firestore design was known; its SQL is superseded by this file and the README | Private |
 
-### `werdna64/themodel` layout
+`werdna64/themodel` layout: `index.html` (built model) · `build.sh` (rebuilds it) · `src/hotel.py`, `src/build.py` (geometry, fixtures, boards → `src/out/viewer_data.json`) · `src/viewer.html` (viewer, panels, Log-a-job link) · `src/make_html.py` (assembles `index.html`, stamps "Model updated <date>") · `src/three_bundle.js`.
 
-```
-index.html          built model – what Cloudflare serves
-build.sh            rebuilds index.html from src/
-requirements.txt    numpy, shapely>=2, trimesh
-src/hotel.py        base floor plans and spaces
-src/build.py        geometry, doors, fixtures, fit-outs, boards → src/out/viewer_data.json
-src/viewer.html     three.js viewer (panels, close-ups, asset sheets, Log-a-job link)
-src/make_html.py    injects data + three_bundle.js + build date into index.html
-src/three_bundle.js three.js r160 + OrbitControls
-```
+## 3. Security rules for this repo
 
-Rebuild: `pip install -r requirements.txt && ./build.sh`, commit, push. The side panel shows "Model updated <date time>" so you can confirm which build is live.
+- **Never copy the model, `viewer_data.json`, floor geometry or screenshots of plant/switch rooms into this repo.** It and its Pages site are public; the model shows the hotel layout, plant and switch rooms, CCTV positions and fire routes.
+- `assets.json` from the model is fine to pass to `scripts/sync-assets.js` locally, but **do not commit it** here (it lists rooms and equipment locations). Add it to `.gitignore` if it is ever placed in the repo folder.
+- Linking **to** the model is fine: its URL goes in ⚙ Settings → Site → **3D model link**. Cloudflare Access controls who gets in; staff are managed in Cloudflare Zero Trust → Access controls → Policies → **Hotel staff**.
+- `serviceAccountKey.json` must never be committed (already git-ignored).
 
-## 3. Security rules (important)
+## 4. Status
 
-- **Never copy the model, `viewer_data.json` or any floor geometry into `werdna64/maintenance`.** That repo and its GitHub Pages site are public; the model shows the hotel layout, plant and switch rooms, CCTV positions and fire routes.
-- MaintDB itself holds nothing that identifies users or the hotel, so it can stay public.
-- Link **to** the model (`https://themodel-b4w.pages.dev`) from MaintDB if wanted; the login protects it.
-- Staff access to the model is managed in Cloudflare Zero Trust → Access controls → Policies → **Hotel staff** (Emails list). The main address uses that policy; preview URLs are owner-only.
+| Piece | MaintDB (this repo) | 3D model (`themodel`) |
+| --- | --- | --- |
+| Deep link `?new=1&asset=…&floor&location&name&source=3d-model` with fallback | **Done** (app.js deep-link handler) | Sends `new, site, floor, location, asset, source`. `asset` is currently the **display name**, not a key, and `name` is not sent → every job lands as "not in asset register" with fallback text. **To do.** |
+| `assets` collection keyed by `assetKey` | **Done** (rules + `scripts/sync-assets.js`) | Unique `assetKey` per tappable item and an `assets.json` export – **to do** |
+| Job numbers `SHF-000123` | **Done** (`counters/jobs` transaction; prefix in Settings → Site) | n/a |
+| "3D Model" tile on Home | **Done** – needs the URL pasted into Settings → Site → 3D model link | Live at `https://themodel-b4w.pages.dev` |
+| Circuits / breakers, supply tracing | Not started | Board charts exist in the model; register in Claude Sheets |
+| Live open-job status in the model | Not started (needs the model to read Firestore) | Not started |
 
-## 4. Current link from the model into MaintDB (live now)
+## 5. Contract the model must meet (from README)
 
-`src/viewer.html`, `TRACKER_URL = 'https://werdna64.github.io/maintenance/'`. Tapping **Log a job** opens:
+**Deep link** (model → app):
 
 ```
 https://werdna64.github.io/maintenance/?new=1
-  &site=Leonardo Hotel Sheffield
-  &floor=Fifth                 (Basement | Lower Ground | Ground | First … Ninth)
-  &location=Room 505           (or a space name, e.g. "Switch room", "Bar")
-  &asset=Bedside lamp          (display name, bracketed suffix stripped)
+  &asset=SHF.5.R505.BED.LAMP-L
   &source=3d-model
+  &floor=Fifth
+  &location=Room 505
+  &name=Left bedside lamp
 ```
 
-**MaintDB should handle this today:** when `new=1` is present, open the new-job form pre-filled from `site`, `floor`, `location` and `asset`, and record `source=3d-model`. Treat all values as untrusted text.
+**`assets.json`** (model export → `node scripts/sync-assets.js path/to/assets.json`): a JSON array of
 
-**Known limitation:** `asset` is not unique (both bedside lamps send "Bedside lamp", and the same name repeats in every room). Fixed by asset keys (section 5).
+```json
+{ "assetKey": "SHF.5.R505.BED.LAMP-L", "area": "5th Floor", "room": "505", "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+```
 
-## 5. Planned changes (see the integration brief for full SQL and payloads)
+- `assetKey` format: `SHF.<FLOOR>.<LOCATION>[.<ZONE>].<ITEM>[-N]`, upper case, dot-separated, never reused. Floors `B`, `LG`, `G`, `1`–`9`, `ROOF`. Examples: `SHF.5.R505.BATH.EXTRACT`, `SHF.LG.SWITCH-ROOM.DB-HF`.
+- `area` and `room` **must match MaintDB's existing Area and Room names exactly** (⚙ Settings → Areas / Rooms), otherwise the sync script creates new ones. The model needs that list before it can export – see open questions.
+- `active` is managed by the sync script; the model does not send it.
 
-1. **Asset keys.** Every tappable item gets a stable `assetKey`, format `SITE.FLOOR.LOCATION[.ZONE].ITEM[-N]`, e.g. `SHF.5.R505.BED.LAMP-L`, `SHF.LG.SWITCH-ROOM.DB-HF`, `SHF.LG.SWITCH-ROOM.DB-HF.W10-L2`. Floors: `B`, `LG`, `G`, `1`–`9`, `ROOF`. The model build will export `assets.json` / `assets.csv` to seed MaintDB.
-2. **MaintDB schema:** `assets` table (`asset_key` unique, `parent_id` for containment, `room_id` nullable – not every location is a bedroom), `circuits` table (board, way, phase, device, rating, status), `assets.fed_from → circuits` for the electrical supply tree, `jobs.asset_id`, server-assigned `jobs.job_number` (e.g. `SHF-000123`), `jobs.client_request_id` for idempotent offline posts.
-3. **Deep link v2:** `?new=1&asset=<assetKey>&source=3d-model` plus the current fields as fallback. Unknown key → still open a pre-filled job and flag "asset not in register"; never fail.
-4. **Later:** `POST /api/jobs`, open-jobs endpoints so the model can show items with open jobs in red, and circuit trace endpoints. This needs the model and MaintDB on the same origin behind the same login (e.g. MaintDB front end moved onto the Cloudflare project).
+## 6. Open questions
 
-## 6. Open questions for MaintDB
+1. What are MaintDB's exact Area names and Room naming (e.g. `5th Floor` / `505`, and for non-bedrooms like the switch room or bar)? The model's export must use them verbatim.
+2. Should breakers become assets (so a job can be logged against "DB-HF way 10 L2")? If so, `parentKey` = the board's key. Circuit tracing beyond that is a separate future data model.
+3. Which department should "3D Model" jobs map to – add a **3D Model** department in Settings, or leave blank?
 
-- Which backend/database does MaintDB use, and how does it authenticate? (Brief assumes PostgreSQL.)
-- Does `rooms` cover non-bedroom locations, or should assets carry `location` text?
-- Should breakers be assets (can have jobs) as well as circuit rows? Brief assumes yes, one-to-one.
-- When circuits move into MaintDB, is the Claude Sheets register retired?
+## 7. Next steps
 
-## 7. Suggested first task for Claude Code in MaintDB
-
-Implement the `?new=1` deep-link handler (section 4) with the fallback behaviour from section 5.3, so it already accepts an optional `asset` key. No schema change is needed for that step.
+- **Model side (done in the 3D model chat / `themodel` repo):** add `assetKey` to every tappable item, send `asset=<key>` and `name=<label>` in the Log-a-job link, and export `assets.json` to the contract above.
+- **MaintDB side:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link; once `assets.json` exists, run `scripts/sync-assets.js` and check the drift report. No code change needed for either.
