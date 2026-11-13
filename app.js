@@ -19,14 +19,34 @@ function jobStatusLabel(status){
 }
 
 let jobs = [];
-let rooms = [];      // { id, number, area }
-let assets = [];     // { assetKey, area, room, name, type, parentKey, active } — see README's "3D model integration"
+let rooms = [];      // { id, number, floorLevel, floorName }
+let assets = [];     // { assetKey, floorLevel, floorName, room, kind, zone, name, type, parentKey, active } — see README's "3D model integration"
 let walks = [];       // completed Fire & Security Walk sessions
 let ppmTasks = [];    // planned preventative maintenance schedules
-let config = { siteName: "Maintenance Tracker", siteCode: "JOB", areas: [], commonIssues: [], departments: [], walkFaults: [] };
+let config = { siteName: "Maintenance Tracker", siteCode: "JOB", floors: [], commonIssues: [], departments: [], walkFaults: [] };
 let activeFilter = "Active"; // "Active" = everything except Done, the default view
-let expandedAreas = new Set(); // area names the user has manually expanded (default: all collapsed)
+let expandedAreas = new Set(); // floor names the user has manually expanded (default: all collapsed)
 let expandedRoomAreas = new Set(); // same, for the Settings > Rooms list
+
+// config.floors is [{level, name}], synced from the 3D model (see
+// scripts/sync-assets.js) — level gives the correct basement-to-roof
+// sort for free, so nothing here needs to guess it from the name.
+function floorNames(){
+  return (config.floors||[]).slice().sort((a,b)=>a.level-b.level).map(f=>f.name);
+}
+function floorLevelFor(name){
+  const f = (config.floors||[]).find(f=>f.name===name);
+  return f ? f.level : null;
+}
+// Adds a manually-typed floor name that isn't in the synced list yet.
+// It has no real level from the model, so it sorts after every synced
+// floor rather than guessing where it goes.
+async function ensureFloorExists(name){
+  if(!name || floorNames().includes(name)) return;
+  const maxLevel = (config.floors||[]).reduce((m,f)=>Math.max(m,f.level), -Infinity);
+  config.floors = [...(config.floors||[]), { level: Number.isFinite(maxLevel) ? maxLevel+1 : 0, name }];
+  await DB.setConfig(config);
+}
 let viewedJobIds = new Set(); // jobs opened this session — no longer "new" even if within the unseen window
 let editingId = null;
 let ppmEditingId = null;
@@ -136,9 +156,9 @@ function uid(prefix){
   return prefix + Date.now() + Math.random().toString(36).slice(2,7);
 }
 
-function roomArea(roomNumber){
+function roomFloor(roomNumber){
   const r = rooms.find(r => r.number === roomNumber);
-  return r ? r.area : 'Unassigned';
+  return r ? r.floorName : 'Unassigned';
 }
 
 // Notes used to be a single overwritable string; they're now a list of
@@ -382,8 +402,8 @@ function subscribeData(){
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Maintenance Tracker", siteCode: "JOB", areas: [], commonIssues: [], departments: [], walkFaults: [] };
-    if(!config.areas) config.areas = [];
+    config = cfg || { siteName: "Maintenance Tracker", siteCode: "JOB", floors: [], commonIssues: [], departments: [], walkFaults: [] };
+    if(!Array.isArray(config.floors)) config.floors = [];
     if(!config.commonIssues) config.commonIssues = [];
     // Departments, walk faults and the site code get a sensible starter
     // value the first time this config doc is ever seen missing them —
@@ -447,8 +467,9 @@ function renderChips(){
 }
 
 function renderAreaSelects(){
-  const options = `<option value="">Select area…</option>` +
-    (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  const names = floorNames();
+  const options = `<option value="">Select floor…</option>` +
+    names.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   const currentJobArea = el('f_area').value;
   const currentNjArea = el('nj_area').value;
   const currentReportArea = el('r_area').value;
@@ -459,19 +480,19 @@ function renderAreaSelects(){
   el('r_area').innerHTML = options;
   el('p_area').innerHTML = options;
   el('s_newRoomArea').innerHTML = options;
-  if((config.areas||[]).includes(currentJobArea)) el('f_area').value = currentJobArea;
-  if((config.areas||[]).includes(currentNjArea)) el('nj_area').value = currentNjArea;
-  if((config.areas||[]).includes(currentReportArea)) el('r_area').value = currentReportArea;
-  if((config.areas||[]).includes(currentPpmArea)) el('p_area').value = currentPpmArea;
-  if((config.areas||[]).includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
+  if(names.includes(currentJobArea)) el('f_area').value = currentJobArea;
+  if(names.includes(currentNjArea)) el('nj_area').value = currentNjArea;
+  if(names.includes(currentReportArea)) el('r_area').value = currentReportArea;
+  if(names.includes(currentPpmArea)) el('p_area').value = currentPpmArea;
+  if(names.includes(currentSettingsArea)) el('s_newRoomArea').value = currentSettingsArea;
 
   // Walk fault restriction is optional — "All floors" (no restriction)
   // is the default and first option, unlike the pickers above where a
-  // real area must be chosen.
+  // real floor must be chosen.
   const currentWalkFaultArea = el('s_newWalkFaultArea').value;
   el('s_newWalkFaultArea').innerHTML = `<option value="">All floors</option>` +
-    (config.areas||[]).map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
-  if((config.areas||[]).includes(currentWalkFaultArea)) el('s_newWalkFaultArea').value = currentWalkFaultArea;
+    names.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  if(names.includes(currentWalkFaultArea)) el('s_newWalkFaultArea').value = currentWalkFaultArea;
 }
 
 function renderIssuePresetSelects(){
@@ -494,18 +515,18 @@ function renderSourceSelect(){
   if((config.departments||[]).includes(currentNj)) el('nj_source').value = currentNj;
 }
 
-// The room list is scoped to whichever area is currently picked in that
+// The room list is scoped to whichever floor is currently picked in that
 // sheet — with a couple hundred rooms across a real hotel, one flat
-// "every room" dropdown is unusable, so Area is chosen first and Room
-// is filtered down to just that area's handful of options.
+// "every room" dropdown is unusable, so Floor is chosen first and Room
+// is filtered down to just that floor's handful of options.
 function populateRoomSelect(selectId, areaId){
-  const area = el(areaId).value;
-  const filtered = rooms.filter(r => r.area === area)
+  const floorName = el(areaId).value;
+  const filtered = rooms.filter(r => r.floorName === floorName)
     .sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
   const current = el(selectId).value;
-  el(selectId).innerHTML = area
+  el(selectId).innerHTML = floorName
     ? `<option value="">Select room…</option>` + filtered.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('')
-    : `<option value="">Select an area first…</option>`;
+    : `<option value="">Select a floor first…</option>`;
   if(filtered.some(r=>r.number === current)) el(selectId).value = current;
 }
 
@@ -686,15 +707,16 @@ function render(){
   // group by area, then room
   const byArea = {};
   filtered.forEach(j=>{
-    const area = roomArea(j.room);
+    const area = roomFloor(j.room);
     if(!byArea[area]) byArea[area] = {};
     if(!byArea[area][j.room]) byArea[area][j.room] = [];
     byArea[area][j.room].push(j);
   });
 
   const areaKeys = Object.keys(byArea).sort((a,b)=>{
-    const idxA = (config.areas||[]).indexOf(a);
-    const idxB = (config.areas||[]).indexOf(b);
+    const names = floorNames();
+    const idxA = names.indexOf(a);
+    const idxB = names.indexOf(b);
     if(idxA === -1 && idxB === -1) return a.localeCompare(b);
     if(idxA === -1) return 1;
     if(idxB === -1) return -1;
@@ -817,7 +839,7 @@ function openJobSheet(job){
     renderNotifications();
   }
   el('sheetTitle').textContent = job ? `${canEdit ? 'Edit' : 'View'} — ${job.room}` : 'New job';
-  el('f_area').value = job ? roomArea(job.room) : '';
+  el('f_area').value = job ? roomFloor(job.room) : '';
   populateRoomSelect('f_room', 'f_area');
   if(job) el('f_room').value = job.room;
   el('f_issuePreset').value = '';
@@ -868,7 +890,7 @@ function closeJobSheet(){
 // wizard's shape (progress line, Back/Next, Cancel confirms once
 // there's something to lose) but has no draft persistence: a new job
 // is a couple of taps, not a session spread across floors.
-const NJ_STEP_LABELS = ['Area', 'Room', 'Issue details'];
+const NJ_STEP_LABELS = ['Floor', 'Room', 'Issue details'];
 let njStep = 0;
 let njSubmitting = false;
 
@@ -946,9 +968,9 @@ function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackNa
     el('nj_source').value = mappedSource;
   }
 
-  const area = asset ? asset.area : '';
+  const area = asset ? asset.floorName : '';
   const room = asset ? asset.room : '';
-  const areaResolved = area && (config.areas||[]).includes(area);
+  const areaResolved = area && floorNames().includes(area);
   if(areaResolved){
     el('nj_area').value = area;
     njAdvanceFromArea();
@@ -1084,7 +1106,7 @@ function njAdvanceFromRoom(){
 
 async function njGoNext(){
   if(njStep === 0){
-    if(!el('nj_area').value){ toast('Select an area'); return; }
+    if(!el('nj_area').value){ toast('Select a floor'); return; }
     njAdvanceFromArea();
     return;
   }
@@ -1164,19 +1186,18 @@ async function handleAddNote(){
   toast('Note added');
 }
 
-async function ensureRoomExists(number, area){
+async function ensureRoomExists(number, floorName){
   if(!number) return;
+  if(floorName) await ensureFloorExists(floorName);
+  const floorLevel = floorName ? floorLevelFor(floorName) : null;
   let r = rooms.find(r => r.number === number);
   if(!r){
-    r = { id: uid('r'), number, area: area || 'Unassigned' };
+    r = { id: uid('r'), number, floorLevel, floorName: floorName || 'Unassigned' };
     await DB.putRoom(r);
-  } else if(area && r.area !== area){
-    r.area = area;
+  } else if(floorName && r.floorName !== floorName){
+    r.floorName = floorName;
+    r.floorLevel = floorLevel;
     await DB.putRoom(r);
-  }
-  if(area && !(config.areas||[]).includes(area)){
-    config.areas = [...(config.areas||[]), area];
-    await DB.setConfig(config);
   }
 }
 
@@ -1350,24 +1371,19 @@ function walkFaultsForArea(area){
   });
 }
 
-// Walk order: floors highest-to-lowest (9th Floor down to 1st, however
-// they're named — first number found in the area name), then any
-// non-floor areas (Bar, Kitchen, Reception, ...) after, in whatever
-// order they're listed in Settings. This only affects the walk's own
-// step order — the main job list still groups by config.areas' order.
-function floorNumber(area){
-  const m = String(area).match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
+// Walk order: floors highest-to-lowest (Roof/9th down to Basement, by
+// the model's own floorLevel), then any manually-added non-floor areas
+// (Bar, Kitchen, Reception, ...) after, in whatever order they were
+// added. This only affects the walk's own step order — the main job
+// list still groups by floorNames()' order.
 function walkAreaOrder(areas){
-  const floors = [], others = [];
+  const withLevel = [], others = [];
   areas.forEach(a=>{
-    const n = floorNumber(a);
-    if(n !== null) floors.push({a, n}); else others.push(a);
+    const lvl = floorLevelFor(a);
+    if(lvl !== null) withLevel.push({a, lvl}); else others.push(a);
   });
-  floors.sort((x,y)=> y.n - x.n);
-  return [...floors.map(f=>f.a), ...others];
+  withLevel.sort((x,y)=> y.lvl - x.lvl);
+  return [...withLevel.map(f=>f.a), ...others];
 }
 
 // Saved to localStorage on every meaningful change so a walk survives
@@ -1410,7 +1426,7 @@ function draftHasProgress(draft){
 }
 
 async function openWalkWizard(){
-  if(!(config.areas||[]).length){ toast('Add areas in Settings first'); return; }
+  if(!floorNames().length){ toast('Add floors in Settings first'); return; }
 
   const draft = loadWalkDraft();
   if(draft && draftHasProgress(draft) &&
@@ -1425,7 +1441,7 @@ async function openWalkWizard(){
     });
   } else {
     clearWalkDraft();
-    walkAreas = walkAreaOrder(config.areas);
+    walkAreas = walkAreaOrder(floorNames());
     walkIndex = 0;
     walkData = {};
     walkStartedAt = new Date().toISOString();
@@ -1457,7 +1473,7 @@ function renderWalkStep(){
   el('walkFloorName').textContent = area;
 
   const defaultRoom = `${area} Corridor`;
-  const areaRooms = rooms.filter(r => r.area === area)
+  const areaRooms = rooms.filter(r => r.floorName === area)
     .sort((a,b)=> a.number.localeCompare(b.number, undefined, {numeric:true}));
   const floorRoomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
     areaRooms.map(r=>`<option value="${escapeHtml(r.number)}">${escapeHtml(r.number)}</option>`).join('');
@@ -1467,8 +1483,8 @@ function renderWalkStep(){
   // area, instead of just this floor's — built once per render since
   // it doesn't depend on which floor is being walked.
   const hotelRoomOptionsHtml = `<option value="${escapeHtml(defaultRoom)}">${escapeHtml(defaultRoom)} (default)</option>` +
-    walkAreaOrder(config.areas||[]).map(a=>{
-      const areaRoomList = rooms.filter(r=>r.area===a)
+    walkAreaOrder(floorNames()).map(a=>{
+      const areaRoomList = rooms.filter(r=>r.floorName===a)
         .sort((x,y)=> x.number.localeCompare(y.number, undefined, {numeric:true}));
       if(!areaRoomList.length) return '';
       return `<optgroup label="${escapeHtml(a)}">` +
@@ -1726,7 +1742,7 @@ async function finishWalk(){
           // only a genuinely new room (the {Floor} Corridor catch-all)
           // should be created against the floor being walked.
           const knownRoom = rooms.find(r => r.number === room);
-          await ensureRoomExists(room, knownRoom ? knownRoom.area : floor.area);
+          await ensureRoomExists(room, knownRoom ? knownRoom.floorName : floor.area);
           const isNew = await logWalkFinding(room, issue, floor.note);
           if(isNew) newCount++; else reconfirmedCount++;
         }
@@ -2027,7 +2043,7 @@ function openPpmTaskSheet(task){
   ppmEditingId = task ? task.id : null;
   el('ppmTaskSheetTitle').textContent = task ? 'Edit PPM Task' : 'New PPM Task';
   el('p_name').value = task ? task.name : '';
-  el('p_area').value = (task && task.room) ? roomArea(task.room) : '';
+  el('p_area').value = (task && task.room) ? roomFloor(task.room) : '';
   populateRoomSelect('p_room', 'p_area');
   if(task && task.room) el('p_room').value = task.room;
   el('p_recurrenceType').value = task ? task.recurrenceType : 'fixed';
@@ -2129,7 +2145,7 @@ function computeSummaryReport(period){
   const openNow = jobs.filter(j => j.status !== 'Done');
 
   const byArea = {};
-  loggedInPeriod.forEach(j=>{ const a = roomArea(j.room); byArea[a] = (byArea[a]||0) + 1; });
+  loggedInPeriod.forEach(j=>{ const a = roomFloor(j.room); byArea[a] = (byArea[a]||0) + 1; });
   const bySource = {};
   loggedInPeriod.forEach(j=>{ const s = j.source || 'Unknown'; bySource[s] = (bySource[s]||0) + 1; });
 
@@ -2162,7 +2178,7 @@ function computeFaultsByRoom(){
   const byRoom = {};
   jobs.forEach(j=>{
     if(!j.room) return;
-    if(!byRoom[j.room]) byRoom[j.room] = { area: roomArea(j.room), total: 0, closedCount: 0, closedMsTotal: 0, issues: {} };
+    if(!byRoom[j.room]) byRoom[j.room] = { area: roomFloor(j.room), total: 0, closedCount: 0, closedMsTotal: 0, issues: {} };
     const entry = byRoom[j.room];
     entry.total++;
     if(j.status === 'Done' && j.dateClosed){
@@ -2274,7 +2290,7 @@ function renderReportsSummary(){
   el('reportStatPpmSoon').onclick = openPpmList;
 
   renderReportBarList(s.byArea, el('reportByArea'), (area)=>
-    openReportDrilldown(area, s.loggedInPeriod.filter(j=>roomArea(j.room)===area)));
+    openReportDrilldown(area, s.loggedInPeriod.filter(j=>roomFloor(j.room)===area)));
   renderReportBarList(s.bySource, el('reportBySource'), (source)=>
     openReportDrilldown(source, s.loggedInPeriod.filter(j=>(j.source||'Unknown')===source)));
 }
@@ -2289,8 +2305,9 @@ function renderReportsFaults(){
   });
 
   const areaKeys = Object.keys(byArea).sort((a,b)=>{
-    const idxA = (config.areas||[]).indexOf(a);
-    const idxB = (config.areas||[]).indexOf(b);
+    const names = floorNames();
+    const idxA = names.indexOf(a);
+    const idxB = names.indexOf(b);
     if(idxA === -1 && idxB === -1) return a.localeCompare(b);
     if(idxA === -1) return 1;
     if(idxB === -1) return -1;
@@ -2407,7 +2424,7 @@ const SETTINGS_TILES = [
   { id: 'settingsSiteBackdrop', label: 'Site',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`,
     onOpen: ()=>{ el('s_siteName').value = config.siteName || ''; el('s_siteCode').value = config.siteCode || ''; el('s_modelUrl').value = config.modelUrl || ''; } },
-  { id: 'settingsAreasBackdrop', label: 'Areas',
+  { id: 'settingsAreasBackdrop', label: 'Floors',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`,
     onOpen: renderAreaTags },
   { id: 'settingsCommonIssuesBackdrop', label: 'Common Issues',
@@ -2450,14 +2467,14 @@ function closeSettings(){
 function renderAreaTags(){
   const wrap = el('areaTagList');
   wrap.innerHTML = '';
-  (config.areas||[]).forEach(a=>{
+  floorNames().forEach(a=>{
     const tag = document.createElement('div');
     tag.className = 'tag';
     tag.innerHTML = `<span>${escapeHtml(a)}</span><button data-area="${escapeHtml(a)}">×</button>`;
     tag.querySelector('button').addEventListener('click', async ()=>{
-      config.areas = config.areas.filter(x=>x!==a);
+      config.floors = config.floors.filter(f=>f.name!==a);
       await DB.setConfig(config);
-      toast('Area removed');
+      toast('Floor removed');
     });
     wrap.appendChild(tag);
   });
@@ -2530,14 +2547,15 @@ function renderRoomList(){
 
   const byArea = {};
   rooms.forEach(r=>{
-    const area = r.area || 'Unassigned';
+    const area = r.floorName || 'Unassigned';
     if(!byArea[area]) byArea[area] = [];
     byArea[area].push(r);
   });
 
   const areaKeys = Object.keys(byArea).sort((a,b)=>{
-    const idxA = (config.areas||[]).indexOf(a);
-    const idxB = (config.areas||[]).indexOf(b);
+    const names = floorNames();
+    const idxA = names.indexOf(a);
+    const idxB = names.indexOf(b);
     if(idxA === -1 && idxB === -1) return a.localeCompare(b);
     if(idxA === -1) return 1;
     if(idxB === -1) return -1;
@@ -2577,10 +2595,7 @@ function renderRoomList(){
 async function handleAddArea(){
   const val = el('s_newArea').value.trim();
   if(!val) return;
-  if(!(config.areas||[]).includes(val)){
-    config.areas = [...(config.areas||[]), val];
-    await DB.setConfig(config);
-  }
+  await ensureFloorExists(val);
   el('s_newArea').value = '';
 }
 
@@ -2636,9 +2651,9 @@ async function handleAddRoom(){
   toast('Room added');
 }
 
-// Bulk room entry: one "Number, Area" pair per line. Reuses
+// Bulk room entry: one "Number, Floor" pair per line. Reuses
 // ensureRoomExists() line by line — a room number already on file gets
-// its area updated rather than duplicated, and anything not mentioned
+// its floor updated rather than duplicated, and anything not mentioned
 // in the paste is left untouched, so this is safe to re-run.
 async function handleBulkImportRooms(){
   const raw = el('s_bulkRooms').value;
@@ -2664,7 +2679,7 @@ async function handleBulkImportRooms(){
   el('s_bulkRooms').value = '';
   btn.disabled = false;
   btn.textContent = 'Import rooms';
-  toast(skipped > 0 ? `Imported ${added}, skipped ${skipped} (need "Number, Area")` : `Imported ${added} rooms`);
+  toast(skipped > 0 ? `Imported ${added}, skipped ${skipped} (need "Number, Floor")` : `Imported ${added} rooms`);
 }
 
 async function handleSaveSiteName(){

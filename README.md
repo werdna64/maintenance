@@ -1,6 +1,6 @@
 # Maintenance Tracker (PWA)
 
-A mobile-first maintenance job tracker, grouped by Area and Room, shared in
+A mobile-first maintenance job tracker, grouped by Floor and Room, shared in
 real time across everyone who needs it. Installs to the home screen on
 Android and iOS like a native app (no App Store needed) and works offline —
 data syncs the moment a signal comes back.
@@ -19,7 +19,7 @@ Each account is assigned one of four roles:
 
 | Role | Can do |
 |---|---|
-| **Maintenance** | Full control: log/edit/delete jobs, cycle status, manage the list of rooms and areas, set the site name, manage PPM tasks. |
+| **Maintenance** | Full control: log/edit/delete jobs, cycle status, manage the list of rooms and floors, set the site name, manage PPM tasks. |
 | **Housekeeping** | Raise a "Report a problem" against an existing room (auto-tagged with their department), and log/edit any job and cycle its status — same as Maintenance, minus Delete and Settings/PPM. |
 | **Management** | Log a new job through the same wizard Maintenance uses, and edit/cycle the status of any job — same as Housekeeping, minus the "Report a problem" shortcut. No Delete, no Settings/PPM, no Fire & Security Walk. |
 | **Viewer** | Read-only dashboard: open/in-progress/awaiting-parts/closed counts, and the full job list, Walk History and Reports, grouped the same way as everyone else. No editing, nothing to log. |
@@ -34,7 +34,7 @@ typo doesn't have to wait for Maintenance to fix it.
 
 - `index.html` — app shell (login screen + main app)
 - `style.css` — styling
-- `app.js` — app logic (login, jobs, rooms, areas, settings, role-based UI)
+- `app.js` — app logic (login, jobs, rooms, floors, settings, role-based UI)
 - `db.js` — Firebase Authentication + Firestore data layer
 - `firebase-config.example.js` — template for your Firebase project's keys
 - `firebase-config.js` — this hotel's actual Firebase project keys (committed — see "Get your web app config" below)
@@ -214,30 +214,33 @@ working with no signal once it's loaded once.
   Managers, Fire & Security Walk, Maintenance, Management, Viewer), so
   send people there first rather than this README, which is really the
   setup doc for whoever's running the Firebase project.
-- As Maintenance: ⚙ Settings lets you set the site name and add the Areas
-  and Rooms for this hotel. Do this once before anyone else logs jobs —
-  housekeeping can only report against rooms that already exist.
-  Settings itself is a tile screen (Site, Areas, Common Issues,
-  Departments, Walk Faults, Rooms) rather than one long scrolling
-  page — tap a tile to open that section, Close returns to the tile
-  screen rather than out of Settings entirely.
+- As Maintenance: ⚙ Settings lets you set the site name and add
+  Floors and Rooms for this hotel — Floors are normally kept in step
+  with the 3D model's own floor list by `scripts/sync-assets.js`, but
+  you can add one by hand too (e.g. a non-floor grouping like Bar or
+  Kitchen). Do this once before anyone else logs jobs — housekeeping
+  can only report against rooms that already exist. Settings itself is
+  a tile screen (Site, Floors, Common Issues, Departments, Walk
+  Faults, Rooms) rather than one long scrolling page — tap a tile to
+  open that section, Close returns to the tile screen rather than out
+  of Settings entirely.
 - The main list defaults to the **Active** filter — everything except
   Closed jobs — so it stays a list of what's actually outstanding
   instead of accumulating every completed job forever. Tap **All** to
   see everything including Closed, or **Closed** to see just the
   completed ones; the "Show all" button next to search resets both the
   filter and the search box back to everything in one tap.
-- Every area starts **collapsed**, with a count badge showing how many
+- Every floor starts **collapsed**, with a count badge showing how many
   jobs are inside (the badge disappears once you expand it, since the
   cards themselves are the count then) — tap the heading to open or
-  close it. Which areas you've expanded is remembered while the app is
+  close it. Which floors you've expanded is remembered while the app is
   open, but resets on reload — it's a "show me this for now" toggle,
   not a saved preference.
 - **A red count badge means something new is inside** — the same
   "unseen since you last checked" set the 🔔 notification bell tracks,
-  just localized to which area it's in, so a new job doesn't go
-  unnoticed just because its area happens to be collapsed. Opening that
-  job clears just its own red flag (the area badge and the bell both
+  just localized to which floor it's in, so a new job doesn't go
+  unnoticed just because its floor happens to be collapsed. Opening that
+  job clears just its own red flag (the floor badge and the bell both
   update immediately) — you don't have to open the bell panel to
   dismiss something you've already looked straight at. Opening the
   bell panel still works too, and clears everything at once. Both are
@@ -246,14 +249,14 @@ working with no signal once it's loaded once.
   notifications panel, since that's the only part that's actually
   saved.
 - Maintenance and Management log a new job through a short **3-step
-  wizard** (tap the ➕ button, or Home → New Job) — Area, then Room
-  (filtered to that area), then the issue details (Reported by, an
+  wizard** (tap the ➕ button, or Home → New Job) — Floor, then Room
+  (filtered to that floor), then the issue details (Reported by, an
   optional Quick pick, and a free-text description) — one screen at a
-  time instead of a single page of fields. Picking an Area or Room
+  time instead of a single page of fields. Picking a Floor or Room
   moves straight to the next step on its own, so it's a couple of taps
   rather than tap-then-confirm each time; Back/Next are still there to
   move between steps manually (e.g. to double-check a choice). Once
-  Area/Room are picked, they stay visible as a summary line under the
+  Floor/Room are picked, they stay visible as a summary line under the
   "New job" title, so you don't lose track of which job you're on
   after those fields scroll out of view. The last step's button
   becomes **Save job**. Housekeeping's ➕ still opens its own "Report a
@@ -279,15 +282,15 @@ working with no signal once it's loaded once.
   what was deleted and why even though the job itself is gone. Nothing
   in the app currently displays this collection — check it directly in
   the Firestore console if you ever need to.
-- ⚙ Settings → Rooms lists every room grouped by area/floor and
+- ⚙ Settings → Rooms lists every room grouped by floor and
   collapsed by default, same as the main job list — tap a floor's
   heading to see its rooms. Has a **bulk import** box under the usual
-  one-at-a-time form — paste multiple `Room number, Area` lines (one
-  per room) and tap Import. Any area mentioned that doesn't exist yet
+  one-at-a-time form — paste multiple `Room number, Floor` lines (one
+  per room) and tap Import. Any floor mentioned that doesn't exist yet
   is created automatically. It's safe to re-run: a room number already
-  on file gets its area updated rather than duplicated, and rooms not
+  on file gets its floor updated rather than duplicated, and rooms not
   in the pasted list are left alone — useful for setting up a full
-  room list in one go, or fixing a batch of areas later.
+  room list in one go, or fixing a batch of floors later.
 - ⚙ Settings → **Common Issues** is an optional list of recurring
   problems (e.g. "Bath plug missing", "Sink blocked", "TV remote
   missing") that shows up as a "Quick pick" dropdown when logging or
@@ -357,7 +360,7 @@ Each fault you tap becomes its own job, tagged `Fire & Security Walk`.
 By default it's logged against a "**{Floor} Corridor**" room that's
 created automatically the first time that floor gets a finding (e.g.
 "3rd Floor Corridor") — so walk findings group under the same
-floor/area as everything else, without needing a numbered room. Tapping
+floor as everything else, without needing a numbered room. Tapping
 a fault reveals a room picker right next to it, defaulting to that
 corridor room but switchable to any real room already set up for that
 floor — use it when a fault actually belongs to a specific room rather
@@ -445,7 +448,7 @@ PAT testing, fire extinguisher servicing, lift servicing, boiler/gas
 safety) that need doing on a schedule whether or not anything's visibly
 wrong. The PPM tile on Home (Maintenance only) opens the task list.
 
-Each task has a name, a room (reuse the same Area/Room picker as
+Each task has a name, a room (reuse the same Floor/Room picker as
 everywhere else — for a task that isn't really about one specific room,
 pick whatever's closest, e.g. "Plant Room", the same way Fire & Security
 Walk uses a synthetic "{Floor} Corridor" room), how often it repeats, a
@@ -489,7 +492,7 @@ always current), how many were logged and closed within the chosen
 period, average time from logged to closed, walks completed and how
 many had at least one issue, and how many PPM tasks are currently
 overdue or due soon. Below that, a breakdown of jobs logged in the
-period by area and by department, as simple bar lists (longest bar =
+period by floor and by department, as simple bar lists (longest bar =
 most jobs).
 
 **Faults by Room** and **By Issue** are the same underlying data cut
@@ -514,7 +517,7 @@ of different rooms) that Faults by Room, being organized per-room,
 wouldn't surface on its own.
 
 **Everything in Reports drills down.** A stat tile, a bar in the
-area/department breakdown, a room, an issue — tap any of them to see
+floor/department breakdown, a room, an issue — tap any of them to see
 the actual jobs behind that number, then tap one of those to open it
 properly (full edit for Maintenance/Housekeeping/Management, view-only
 for Viewer, same as opening it from the main job list). The Walks and
@@ -592,8 +595,11 @@ Each tappable item in the model corresponds to one document in a new
 | Field | Meaning |
 |---|---|
 | `assetKey` | Same string as the model's own key and the document ID |
-| `area` | Must match one of this app's existing Areas (⚙ Settings → Areas) |
+| `floorLevel` | The model's own numeric floor level (e.g. `5`, `0`, `-1`) — the sort key for Settings → Floors |
+| `floorName` | The model's own display name for that floor (e.g. "5th Floor") — this app's "Floor" is the model's floor, not a separately hand-typed list |
 | `room` | Must match one of this app's existing Rooms (⚙ Settings → Rooms) |
+| `kind` | The model's space kind — `room`, `corridor`, `plant`, `store`, ... |
+| `zone` | The model's zone/wing grouping, where it has one |
 | `name` | Shown in the job wizard's summary line and the job's detail view |
 | `type` | Free text — `lamp`, `socket`, `ac_unit`, `db`, ... |
 | `parentKey` | Another asset's key, for containment (e.g. an AC controller's parent is the AC unit) — not yet used by the app itself, stored for later |
@@ -607,11 +613,15 @@ asset export changes.
 
 `scripts/sync-assets.js` is a small Node script (not part of the
 deployed app) that reads the model's own `assets.json` export and
-upserts it into Firestore, creating any Room/Area it mentions that
-doesn't exist yet (same as adding one by hand in Settings), and
-reports any asset key that's in Firestore but no longer in the file
-(marked `active: false`, never deleted outright, so a job already
-logged against it keeps its link).
+upserts it into Firestore, creating any Room it mentions that doesn't
+exist yet (same as adding one by hand in Settings) and keeping
+Settings → Floors in step with the model's own floor list, and reports
+any asset key that's in Firestore but no longer in the file (marked
+`active: false`, never deleted outright, so a job already logged
+against it keeps its link). It diffs against the current Firestore
+state in memory and only writes what actually changed, in batches —
+safe to re-run as often as needed; a rerun with nothing new costs two
+collection reads and no writes.
 
 **One-time setup:**
 1. Firebase console → ⚙ Project settings → Service accounts →
@@ -629,7 +639,7 @@ node scripts/sync-assets.js path/to/assets.json
 Expects a JSON array, one object per asset:
 ```json
 [
-  { "assetKey": "SHF.5.R505.BED.LAMP-L", "area": "5th Floor", "room": "505", "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+  { "assetKey": "SHF.5.R505.BED.LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
 ]
 ```
 

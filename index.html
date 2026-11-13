@@ -156,16 +156,16 @@
     <div class="walk-progress" id="njProgress"></div>
 
     <div class="field" id="njStepArea">
-      <label>Area</label>
+      <label>Floor</label>
       <select id="nj_area">
-        <option value="">Select area…</option>
+        <option value="">Select floor…</option>
       </select>
     </div>
 
     <div class="field" id="njStepRoom" style="display:none;">
       <label>Room</label>
       <select id="nj_room">
-        <option value="">Select an area first…</option>
+        <option value="">Select a floor first…</option>
       </select>
     </div>
 
@@ -202,15 +202,15 @@
     <h2 id="sheetTitle">New job</h2>
     <div class="row2">
       <div class="field">
-        <label>Area</label>
+        <label>Floor</label>
         <select id="f_area">
-          <option value="">Select area…</option>
+          <option value="">Select floor…</option>
         </select>
       </div>
       <div class="field">
         <label>Room</label>
         <select id="f_room">
-          <option value="">Select an area first…</option>
+          <option value="">Select a floor first…</option>
         </select>
       </div>
     </div>
@@ -282,15 +282,15 @@
     <h2>Report a problem</h2>
     <div class="row2">
       <div class="field">
-        <label>Area</label>
+        <label>Floor</label>
         <select id="r_area">
-          <option value="">Select area…</option>
+          <option value="">Select floor…</option>
         </select>
       </div>
       <div class="field">
         <label>Room</label>
         <select id="r_room">
-          <option value="">Select an area first…</option>
+          <option value="">Select a floor first…</option>
         </select>
       </div>
     </div>
@@ -370,15 +370,15 @@
     </div>
     <div class="row2">
       <div class="field">
-        <label>Area</label>
+        <label>Floor</label>
         <select id="p_area">
-          <option value="">Select area…</option>
+          <option value="">Select floor…</option>
         </select>
       </div>
       <div class="field">
         <label>Room</label>
         <select id="p_room">
-          <option value="">Select an area first…</option>
+          <option value="">Select a floor first…</option>
         </select>
       </div>
     </div>
@@ -477,7 +477,7 @@
       </div>
 
       <div class="settings-section">
-        <h3>Jobs by area</h3>
+        <h3>Jobs by floor</h3>
         <div id="reportByArea"></div>
       </div>
       <div class="settings-section">
@@ -570,11 +570,11 @@
 
 <div class="sheet-backdrop" id="settingsAreasBackdrop">
   <div class="sheet">
-    <h2>Areas</h2>
+    <h2>Floors</h2>
     <div class="tag-list" id="areaTagList"></div>
     <div class="row2">
       <div class="field" style="margin-bottom:0;">
-        <input id="s_newArea" type="text" placeholder="Add area, e.g. Bar / Kitchen / 4th Floor">
+        <input id="s_newArea" type="text" placeholder="Add floor, e.g. Bar / Kitchen / 4th Floor">
       </div>
       <button class="btn btn-primary" id="addAreaBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
     </div>
@@ -655,17 +655,17 @@
       </div>
       <div class="field" style="margin-bottom:0;">
         <select id="s_newRoomArea">
-          <option value="">Select area…</option>
+          <option value="">Select floor…</option>
         </select>
       </div>
       <button class="btn btn-primary" id="addRoomBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
     </div>
 
     <p class="settings-hint">Adding a lot of rooms at once? Paste a
-    list below, one room per line, as <code>Room number, Area</code>
-    — e.g. <code>901, 9th Floor</code>. Areas that don't exist yet are
+    list below, one room per line, as <code>Room number, Floor</code>
+    — e.g. <code>901, 9th Floor</code>. Floors that don't exist yet are
     created automatically. Safe to run more than once: a room number
-    already on the list gets updated (e.g. if its area changed), not
+    already on the list gets updated (e.g. if its floor changed), not
     duplicated, and anything not in your pasted list is left alone.</p>
     <textarea id="s_bulkRooms" rows="6" placeholder="901, 9th Floor&#10;902, 9th Floor&#10;9th Floor Lift Lobby, 9th Floor"></textarea>
     <div class="row2">
@@ -712,12 +712,12 @@
     <div class="settings-section">
       <h3>Everyone (once signed in)</h3>
       <ul>
-        <li>The main list groups every job by area/floor, then room. By
+        <li>The main list groups every job by floor, then room. By
         default it shows everything <strong>except Closed</strong> jobs, so
         it stays a list of what's actually outstanding — tap the
         <strong>All</strong> or <strong>Closed</strong> chip to see
         completed jobs too.</li>
-        <li>Every area starts collapsed — tap its heading to open it. A
+        <li>Every floor starts collapsed — tap its heading to open it. A
         number badge shows how many jobs are inside; it turns
         <strong>red</strong> if one of them is new. Opening that job
         clears its own red flag — no need to go through the 🔔 panel
@@ -752,8 +752,8 @@
       <ul>
         <li>Tap the <strong>+</strong> button (bottom right) →
         <strong>Report a problem</strong>.</li>
-        <li>Pick the area/floor first, then the room (this narrows the
-        room list down to just that area), use Quick Pick if your
+        <li>Pick the floor first, then the room (this narrows the
+        room list down to just that floor), use Quick Pick if your
         issue's a common one (or describe it yourself), then submit.</li>
         <li>It's automatically tagged with your department and lands in
         the list as <strong>Open</strong> — Maintenance picks it up from
@@ -812,11 +812,11 @@
         status pill to cycle it Open → In Progress → Awaiting Parts →
         Closed.</li>
         <li>Tap <strong>+</strong> to log a new job through a short
-        3-step wizard — Area, then Room (filtered to that area), then
+        3-step wizard — Floor, then Room (filtered to that floor), then
         the issue details (Reported by, Quick pick, description) — one
-        step at a time. Picking an Area or Room jumps straight to the
+        step at a time. Picking a Floor or Room jumps straight to the
         next step; Back/Next are there too for moving between steps
-        manually. Once picked, Area/Room stay visible on their own
+        manually. Once picked, Floor/Room stay visible on their own
         line under the "New job" title so you don't lose track of
         which job you're on. The last step saves the job. Editing an
         existing job still opens the usual single-page sheet.</li>
@@ -832,7 +832,7 @@
         from the list, but the reason is kept permanently, just not
         visible anywhere in the app yet.</li>
         <li>⚙ <strong>Settings</strong> is its own tile screen — Site
-        name, Areas (floors/zones), Common Issues (quick-pick
+        name, Floors (synced from the 3D model, plus any you add by hand), Common Issues (quick-pick
         shortcuts), Departments (who a job can be "Reported by"), Walk
         Faults (the walk checklist), and Rooms. Tap a tile to open that
         section; Close on it goes back to the Settings tiles, not out
@@ -858,7 +858,7 @@
         has three views. <strong>Summary</strong> (with a 7/30/90
         day/all time picker): outstanding jobs right now, logged/closed counts
         for the period, average time to close, walk and PPM stats, and
-        a jobs-by-area and jobs-by-department breakdown.
+        a jobs-by-floor and jobs-by-department breakdown.
         <strong>Faults by Room</strong> and <strong>By Issue</strong>
         are always all-time (a real pattern needs the full history, not
         a rolling window) and only show something that's happened 2+

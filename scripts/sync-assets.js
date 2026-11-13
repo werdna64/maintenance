@@ -2,13 +2,24 @@
 /*
  * scripts/sync-assets.js — one-way sync from the 3D hotel model's asset
  * export into this app's Firestore `assets` collection (and a drift
- * report between the two), plus the Rooms/Areas each asset implies.
+ * report between the two), plus the Rooms each asset implies and the
+ * Floors list in config.
  *
  * Admin-only tooling, not part of the deployed app: uses a Firebase
  * service account key (full read/write, bypasses firestore.rules
  * entirely), never the public firebase-config.js the app itself uses.
  * See README's "3D model integration" section for full setup and the
  * exact assets.json field contract.
+ *
+ * Diff-and-batch, not read-then-write-per-item: the whole existing
+ * `assets`/`rooms` state is read once, compared in memory against the
+ * incoming file, and only the rows that actually changed are written,
+ * in Firestore batches (<=500 writes each). A rerun against unchanged
+ * data costs two collection reads and zero writes — safe to retry as
+ * often as needed, and immune to the old version's failure mode where
+ * every restart replayed a get()+set() for every already-synced item
+ * from position zero, multiplying total Firestore operations with
+ * each retry until it blew through the daily quota.
  *
  * Setup (once):
  *   1. Firebase console -> Project settings -> Service accounts ->
@@ -56,6 +67,32 @@ function loadJson(filePath, label){
   }
 }
 
+// Fields that actually describe the asset — active/floorLevel etc. are
+// compared explicitly alongside these, so a doc is only rewritten when
+// something a human would call "changed" actually did.
+const ASSET_FIELDS = ['floorLevel', 'floorName', 'room', 'kind', 'zone', 'name', 'type', 'parentKey'];
+
+function sameAsset(existing, incoming){
+  if(!existing) return false;
+  if(existing.active === false) return false; // reactivating always counts as a change
+  return ASSET_FIELDS.every(f => (existing[f] ?? null) === (incoming[f] ?? null));
+}
+
+async function commitInChunks(db, ops){
+  // ops: array of {type:'set'|'update', ref, data}
+  let committed = 0;
+  for(let i = 0; i < ops.length; i += 500){
+    const batch = db.batch();
+    for(const op of ops.slice(i, i + 500)){
+      if(op.type === 'set') batch.set(op.ref, op.data);
+      else batch.update(op.ref, op.data);
+    }
+    await batch.commit();
+    committed += Math.min(500, ops.length - i);
+  }
+  return committed;
+}
+
 async function main(){
   const { assetsPath, serviceAccountPath } = parseArgs(process.argv.slice(2));
   if(!assetsPath){
@@ -76,87 +113,104 @@ async function main(){
     process.exit(1);
   }
 
+  console.log(`Loading current Firestore state (one read each, not per item)...`);
+  const [assetsSnap, roomsSnap, configSnap] = await Promise.all([
+    db.collection('assets').get(),
+    db.collection('rooms').get(),
+    db.collection('config').doc('main').get()
+  ]);
+
+  // A room's number/name is only unique within its own floor — most
+  // spaces appear on exactly one floor so this never matters, but a
+  // handful (the Duke Lane / Eyre Lane elevation columns) legitimately
+  // exist on several floors under the same name, so the lookup key
+  // has to include the floor too or later floors silently clobber it.
+  const roomKey = (number, floorLevel) => number + '|' + floorLevel;
+  const existingAssetsByKey = new Map(assetsSnap.docs.map(d => [d.id, d.data()]));
+  const roomsByNumber = new Map(roomsSnap.docs.map(d => [roomKey(d.data().number, d.data().floorLevel), d.data()]));
+  const config = configSnap.exists ? configSnap.data() : {};
+  const existingFloors = Array.isArray(config.floors) ? config.floors : [];
+
+  console.log(`  ${existingAssetsByKey.size} existing assets, ${roomsByNumber.size} existing rooms`);
+
   const seenKeys = new Set();
-  let created = 0, updated = 0, skipped = 0;
-  let roomsCreated = 0, roomsUpdated = 0, areasAdded = 0;
-
-  // Config (the areas list) is one doc — read once, mutate in memory,
-  // write once at the end rather than on every single asset.
-  const configRef = db.collection('config').doc('main');
-  const configSnap = await configRef.get();
-  const config = configSnap.exists ? configSnap.data() : { areas: [] };
-  if(!Array.isArray(config.areas)) config.areas = [];
-  let configChanged = false;
-
-  // Same reasoning for rooms — load the current list once rather than a
-  // get() per asset (this hotel has ~580 spaces; 580 extra reads would
-  // be slow for no benefit).
-  const roomsSnap = await db.collection('rooms').get();
-  const roomsByNumber = new Map(roomsSnap.docs.map(d => [d.data().number, d.data()]));
+  const seenFloors = new Map(); // level -> name
+  const ops = [];
+  let created = 0, updated = 0, unchanged = 0, skipped = 0;
+  let roomsCreated = 0, roomsUpdated = 0;
 
   for(const item of items){
-    const { assetKey, area, room, name, type, parentKey, active } = item || {};
-    if(!assetKey || !area || !room || !name){
-      console.warn(`Skipping item missing assetKey/area/room/name: ${JSON.stringify(item)}`);
+    const { assetKey, floorLevel, floorName, room, kind, zone, name, type, parentKey, active } = item || {};
+    if(!assetKey || floorLevel == null || !floorName || !room || !name){
+      console.warn(`Skipping item missing assetKey/floorLevel/floorName/room/name: ${JSON.stringify(item)}`);
       skipped++;
       continue;
     }
     seenKeys.add(assetKey);
+    seenFloors.set(floorLevel, floorName);
 
-    const existingRoom = roomsByNumber.get(room);
+    const rKey = roomKey(room, floorLevel);
+    const existingRoom = roomsByNumber.get(rKey);
     if(!existingRoom){
-      const newRoom = { id: uid('r'), number: room, area };
-      await db.collection('rooms').doc(newRoom.id).set(newRoom);
-      roomsByNumber.set(room, newRoom);
+      const newRoom = { id: uid('r'), number: room, floorLevel, floorName };
+      ops.push({ type: 'set', ref: db.collection('rooms').doc(newRoom.id), data: newRoom });
+      roomsByNumber.set(rKey, newRoom);
       roomsCreated++;
-    } else if(existingRoom.area !== area){
-      await db.collection('rooms').doc(existingRoom.id).update({ area });
-      existingRoom.area = area;
+    } else if(existingRoom.floorName !== floorName){
+      // floorLevel can't differ — it's part of the lookup key — but the
+      // model could rename a floor (f.name) without changing its level.
+      ops.push({ type: 'update', ref: db.collection('rooms').doc(existingRoom.id), data: { floorName } });
+      existingRoom.floorName = floorName;
       roomsUpdated++;
     }
 
-    if(!config.areas.includes(area)){
-      config.areas.push(area);
-      configChanged = true;
-      areasAdded++;
+    const incoming = { assetKey, floorLevel, floorName, room, kind: kind || null, zone: zone || null, name, type: type || 'other', parentKey: parentKey || null, active: active !== false };
+    const existing = existingAssetsByKey.get(assetKey);
+    if(sameAsset(existing, incoming)){
+      unchanged++;
+      continue;
     }
-
-    const assetRef = db.collection('assets').doc(assetKey);
-    const assetSnap = await assetRef.get();
-    await assetRef.set({
-      assetKey, area, room, name,
-      type: type || 'other',
-      parentKey: parentKey || null,
-      active: active !== false
-    });
-    if(assetSnap.exists) updated++; else created++;
+    ops.push({ type: 'set', ref: db.collection('assets').doc(assetKey), data: incoming });
+    existingAssetsByKey.set(assetKey, incoming);
+    if(existing) updated++; else created++;
   }
 
-  if(configChanged){
-    await configRef.set(config, { merge: true });
-  }
-
-  // Drift report: assets already in Firestore that this run's file
-  // didn't mention at all — left alone rather than deleted (so any job
-  // already logged against that key keeps its link), but flagged
-  // inactive and printed so they can be investigated.
-  const existingAssetsSnap = await db.collection('assets').get();
-  let deactivated = 0;
+  // Drift: assets this run's file didn't mention at all — left alone
+  // rather than deleted (any job already logged against that key keeps
+  // its link), but flagged inactive and printed so they can be
+  // investigated. Reuses the collection read from the top of this run
+  // instead of a second full scan at the end.
   const staleKeys = [];
-  for(const doc of existingAssetsSnap.docs){
-    if(seenKeys.has(doc.id)) continue;
-    const data = doc.data();
+  let deactivated = 0;
+  for(const [key, data] of existingAssetsByKey){
+    if(seenKeys.has(key)) continue;
+    staleKeys.push(key);
     if(data.active !== false){
-      await doc.ref.update({ active: false });
+      ops.push({ type: 'update', ref: db.collection('assets').doc(key), data: { active: false } });
+      data.active = false;
       deactivated++;
     }
-    staleKeys.push(doc.id);
   }
 
+  // Floors list in config, derived entirely from what was just synced —
+  // nothing here is hand-typed, so it can never drift from the model.
+  const mergedFloors = new Map(existingFloors.map(f => [f.level, f.name]));
+  for(const [level, name] of seenFloors) mergedFloors.set(level, name);
+  const newFloors = [...mergedFloors.entries()].map(([level, name]) => ({ level, name })).sort((a, b) => a.level - b.level);
+  const floorsChanged = JSON.stringify(newFloors) !== JSON.stringify(existingFloors);
+  if(floorsChanged){
+    // update(), not set() — config/main also holds siteName, siteCode,
+    // departments, modelUrl, etc. and must not be clobbered.
+    ops.push({ type: 'update', ref: db.collection('config').doc('main'), data: { floors: newFloors } });
+  }
+
+  console.log(`Writing ${ops.length} change(s) in batches of up to 500...`);
+  await commitInChunks(db, ops);
+
   console.log('');
-  console.log(`Assets:  ${created} created, ${updated} updated, ${skipped} skipped (missing fields)`);
+  console.log(`Assets:  ${created} created, ${updated} updated, ${unchanged} unchanged, ${skipped} skipped (missing fields)`);
   console.log(`Rooms:   ${roomsCreated} created, ${roomsUpdated} updated`);
-  console.log(`Areas:   ${areasAdded} added`);
+  console.log(`Floors:  ${floorsChanged ? 'updated (' + newFloors.length + ' total)' : 'unchanged (' + newFloors.length + ' total)'}`);
   if(staleKeys.length){
     console.log(`\nIn Firestore but not in this file (marked inactive, not deleted — ${deactivated} newly so):`);
     staleKeys.forEach(k => console.log(`  ${k}`));
