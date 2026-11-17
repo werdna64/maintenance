@@ -607,7 +607,13 @@ Each tappable item in the model corresponds to one document in a new
 
 Nothing in the app writes to this collection — it's populated entirely
 by `scripts/sync-assets.js` (below), run whenever the model's own
-asset export changes.
+asset export changes. The app only *reads* it, to offer an optional
+**Item** picker (New Job wizard, the single-page job sheet, and
+Report a problem) scoped to whichever room is selected — picking one
+tags the job with that `assetKey`, same as arriving via the model's
+own deep link, so jobs logged normally still carry an asset tag the
+model's live status view (section 10 of `3D_MODEL_CONTEXT.md`) can
+pick up.
 
 ### Keeping the model and the database in step
 

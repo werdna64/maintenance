@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.58';
+const APP_VERSION = '0.1.59';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -530,6 +530,22 @@ function populateRoomSelect(selectId, areaId){
   if(filtered.some(r=>r.number === current)) el(selectId).value = current;
 }
 
+// Scoped to whichever room is currently picked — lets staff tag a job
+// against an item already in the 3D model's register without having
+// gone through the model itself. "No specific item" is always first
+// and the default; a stale (inactive) asset is left out since there's
+// nothing to usefully log against it any more.
+function populateAssetSelect(selectId, roomId){
+  const room = el(roomId).value;
+  const filtered = assets.filter(a => a.room === room && a.active !== false)
+    .sort((a,b)=> a.name.localeCompare(b.name));
+  const current = el(selectId).value;
+  el(selectId).innerHTML = room
+    ? `<option value="">No specific item (optional)</option>` + filtered.map(a=>`<option value="${escapeHtml(a.assetKey)}">${escapeHtml(a.name)}</option>`).join('')
+    : `<option value="">Select a room first…</option>`;
+  if(filtered.some(a=>a.assetKey === current)) el(selectId).value = current;
+}
+
 function renderRoomSelect(){
   populateRoomSelect('r_room', 'r_area');
   populateRoomSelect('f_room', 'f_area');
@@ -842,6 +858,8 @@ function openJobSheet(job){
   el('f_area').value = job ? roomFloor(job.room) : '';
   populateRoomSelect('f_room', 'f_area');
   if(job) el('f_room').value = job.room;
+  populateAssetSelect('f_asset', 'f_room');
+  el('f_asset').value = (job && job.assetKey) ? job.assetKey : '';
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
@@ -869,7 +887,7 @@ function openJobSheet(job){
   el('f_newNote').value = '';
   el('addNoteRow').style.display = (job && canEdit) ? 'flex' : 'none';
 
-  ['f_area','f_room','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
+  ['f_area','f_room','f_asset','f_source','f_issuePreset','f_issue','f_status'].forEach(id=>{
     el(id).disabled = sheetReadOnly;
   });
   el('deleteBtn').style.display = (job && canDelete) ? 'block' : 'none';
@@ -890,7 +908,7 @@ function closeJobSheet(){
 // wizard's shape (progress line, Back/Next, Cancel confirms once
 // there's something to lose) but has no draft persistence: a new job
 // is a couple of taps, not a session spread across floors.
-const NJ_STEP_LABELS = ['Floor', 'Room', 'Issue details'];
+const NJ_STEP_LABELS = ['Floor', 'Room', 'Item', 'Issue details'];
 let njStep = 0;
 let njSubmitting = false;
 
@@ -913,6 +931,7 @@ function openJobWizard(){
   njPendingAssetUnmatched = false;
   el('nj_area').value = '';
   populateRoomSelect('nj_room', 'nj_area');
+  el('nj_asset').value = '';
   el('nj_source').value = currentUser.department || '';
   el('nj_issuePreset').value = '';
   el('nj_issue').value = '';
@@ -1071,12 +1090,13 @@ function renderJobWizardStep(){
   // this line keeps them (and the 3D-model item, if this came from a
   // deep link) in view so it's obvious where the job you're about to
   // save is actually against.
-  const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : '', njStep >= 2 ? njPendingAssetName : ''].filter(Boolean);
+  const picked = [el('nj_area').value, njStep >= 2 ? el('nj_room').value : '', njStep >= 3 ? njPendingAssetName : ''].filter(Boolean);
   el('njSummary').textContent = picked.join(' · ');
   el('njSummary').style.display = picked.length ? '' : 'none';
   el('njStepArea').style.display = njStep === 0 ? '' : 'none';
   el('njStepRoom').style.display = njStep === 1 ? '' : 'none';
-  el('njStepIssue').style.display = njStep === 2 ? '' : 'none';
+  el('njStepAsset').style.display = njStep === 2 ? '' : 'none';
+  el('njStepIssue').style.display = njStep === 3 ? '' : 'none';
   el('njBackBtn').style.display = njStep === 0 ? 'none' : '';
   el('njNextBtn').textContent = njStep === NJ_STEP_LABELS.length - 1 ? 'Save job' : 'Next';
 }
@@ -1100,7 +1120,30 @@ function njAdvanceFromArea(){
 
 function njAdvanceFromRoom(){
   if(!el('nj_room').value) return;
+  populateAssetSelect('nj_asset', 'nj_room');
+  // A deep link may already have resolved a specific item — show it
+  // picked rather than blank, still changeable from here.
+  if(njPendingAssetKey) el('nj_asset').value = njPendingAssetKey;
   njStep = 2;
+  renderJobWizardStep();
+}
+
+// The Item step is optional — picking one resolves it same as a deep
+// link would; leaving it blank keeps whatever a deep link already
+// resolved (including a deliberately "not in the register" match) so
+// landing on this step without touching it never throws that away.
+function njAdvanceFromAsset(){
+  const picked = el('nj_asset').value;
+  if(picked){
+    const asset = assets.find(a=>a.assetKey===picked);
+    njPendingAssetKey = picked;
+    njPendingAssetName = asset ? asset.name : '';
+    njPendingAssetUnmatched = false;
+  } else if(!njPendingAssetUnmatched){
+    njPendingAssetKey = null;
+    njPendingAssetName = '';
+  }
+  njStep = 3;
   renderJobWizardStep();
 }
 
@@ -1113,6 +1156,10 @@ async function njGoNext(){
   if(njStep === 1){
     if(!el('nj_room').value){ toast('Select a room'); return; }
     njAdvanceFromRoom();
+    return;
+  }
+  if(njStep === 2){
+    njAdvanceFromAsset();
     return;
   }
   if(njSubmitting) return;
@@ -1231,6 +1278,23 @@ async function handleSaveJob(){
   job.status = status;
   job.source = el('f_source').value || currentUser.department || 'Maintenance';
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
+
+  const pickedAssetKey = el('f_asset').value;
+  if(pickedAssetKey){
+    const asset = assets.find(a=>a.assetKey===pickedAssetKey);
+    job.assetKey = pickedAssetKey;
+    job.assetName = asset ? asset.name : '';
+    job.assetUnmatched = false;
+  } else if(!job.assetUnmatched){
+    // Leave a deep-link's "not in the register" tag alone unless the
+    // picker is actually used to resolve or clear it deliberately —
+    // the field offers only in-register items, so it has no way to
+    // represent that state itself.
+    delete job.assetKey;
+    delete job.assetName;
+    delete job.assetUnmatched;
+  }
+
   stampAudit(job, isNew);
 
   await DB.putJob(job);
@@ -1300,6 +1364,8 @@ async function handleConfirmDelete(){
 function openReportSheet(){
   el('r_area').value = '';
   populateRoomSelect('r_room', 'r_area');
+  el('r_asset').value = '';
+  populateAssetSelect('r_asset', 'r_room');
   el('r_issuePreset').value = '';
   el('r_issue').value = '';
   el('reportBackdrop').classList.add('open');
@@ -1325,6 +1391,13 @@ async function handleSubmitReport(){
     dateLogged: new Date().toISOString(),
     dateClosed: ''
   };
+  const pickedAssetKey = el('r_asset').value;
+  if(pickedAssetKey){
+    const asset = assets.find(a=>a.assetKey===pickedAssetKey);
+    job.assetKey = pickedAssetKey;
+    job.assetName = asset ? asset.name : '';
+    job.assetUnmatched = false;
+  }
   stampAudit(job, true);
   job.jobNumber = await DB.claimJobNumber(config.siteCode || 'JOB');
   await DB.putJob(job);
@@ -2699,7 +2772,8 @@ on('logoutBtn', 'click', handleLogout);
 on('siteTitle', 'click', ()=> showView('home'));
 on('homeBtn', 'click', ()=> showView('home'));
 
-on('f_area', 'change', ()=>{ populateRoomSelect('f_room', 'f_area'); });
+on('f_area', 'change', ()=>{ populateRoomSelect('f_room', 'f_area'); populateAssetSelect('f_asset', 'f_room'); });
+on('f_room', 'change', ()=>{ populateAssetSelect('f_asset', 'f_room'); });
 on('f_issuePreset', 'change', ()=>{
   if(el('f_issuePreset').value) el('f_issue').value = el('f_issuePreset').value;
 });
@@ -2708,6 +2782,7 @@ on('saveBtn', 'click', handleSaveJob);
 
 on('nj_area', 'change', njAdvanceFromArea);
 on('nj_room', 'change', njAdvanceFromRoom);
+on('nj_asset', 'change', njAdvanceFromAsset);
 on('nj_issuePreset', 'change', ()=>{
   if(el('nj_issuePreset').value) el('nj_issue').value = el('nj_issuePreset').value;
 });
@@ -2720,7 +2795,8 @@ on('deleteBtn', 'click', openDeleteConfirm);
 on('deleteConfirmCancelBtn', 'click', closeDeleteConfirm);
 on('deleteConfirmBtn', 'click', handleConfirmDelete);
 
-on('r_area', 'change', ()=>{ populateRoomSelect('r_room', 'r_area'); });
+on('r_area', 'change', ()=>{ populateRoomSelect('r_room', 'r_area'); populateAssetSelect('r_asset', 'r_room'); });
+on('r_room', 'change', ()=>{ populateAssetSelect('r_asset', 'r_room'); });
 on('r_issuePreset', 'change', ()=>{
   if(el('r_issuePreset').value) el('r_issue').value = el('r_issuePreset').value;
 });

@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.58">
+<link rel="stylesheet" href="style.css?v=0.1.59">
 </head>
 <body>
 
@@ -169,6 +169,13 @@
       </select>
     </div>
 
+    <div class="field" id="njStepAsset" style="display:none;">
+      <label>Item (optional)</label>
+      <select id="nj_asset">
+        <option value="">Select a room first…</option>
+      </select>
+    </div>
+
     <div id="njStepIssue" style="display:none;">
       <div class="field">
         <label>Reported by (department)</label>
@@ -213,6 +220,12 @@
           <option value="">Select a floor first…</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label>Item (optional)</label>
+      <select id="f_asset">
+        <option value="">Select a room first…</option>
+      </select>
     </div>
     <div class="field">
       <label>Reported by (department)</label>
@@ -293,6 +306,12 @@
           <option value="">Select a floor first…</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label>Item (optional)</label>
+      <select id="r_asset">
+        <option value="">Select a room first…</option>
+      </select>
     </div>
     <div class="field">
       <label>Quick pick</label>
@@ -812,14 +831,18 @@
         status pill to cycle it Open → In Progress → Awaiting Parts →
         Closed.</li>
         <li>Tap <strong>+</strong> to log a new job through a short
-        3-step wizard — Floor, then Room (filtered to that floor), then
-        the issue details (Reported by, Quick pick, description) — one
-        step at a time. Picking a Floor or Room jumps straight to the
-        next step; Back/Next are there too for moving between steps
-        manually. Once picked, Floor/Room stay visible on their own
-        line under the "New job" title so you don't lose track of
-        which job you're on. The last step saves the job. Editing an
-        existing job still opens the usual single-page sheet.</li>
+        step-by-step wizard — Floor, then Room (filtered to that
+        floor), then an optional <strong>Item</strong> (whatever's
+        already in the 3D model's register for that room — pick one to
+        tag the job against it, or leave it as "No specific item"),
+        then the issue details (Reported by, Quick pick, description).
+        Picking a Floor, Room or Item jumps straight to the next step;
+        Back/Next are there too for moving between steps manually.
+        Once picked, they stay visible on their own line under the
+        "New job" title so you don't lose track of which job you're
+        on. The last step saves the job. Editing an existing job opens
+        the usual single-page sheet, which has the same optional Item
+        field.</li>
         <li>New jobs always start Open — there's no skipping ahead.</li>
         <li>Notes are permanent once added — a running, timestamped
         thread that's never overwritten.</li>
@@ -934,7 +957,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.58"></script>
-<script src="app.js?v=0.1.58"></script>
+<script src="db.js?v=0.1.59"></script>
+<script src="app.js?v=0.1.59"></script>
 </body>
 </html>
