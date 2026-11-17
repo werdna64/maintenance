@@ -613,7 +613,15 @@ Report a problem) scoped to whichever room is selected — picking one
 tags the job with that `assetKey`, same as arriving via the model's
 own deep link, so jobs logged normally still carry an asset tag the
 model's live status view (section 10 of `3D_MODEL_CONTEXT.md`) can
-pick up.
+pick up. Picking an Item also scopes **Quick Pick** in the issue
+field: ⚙ Settings → **Item Faults** lets Maintenance define a short
+list of common faults per item *type* (TV, AC unit, ...) — Quick Pick
+shows those instead of the generic Common Issues list once a job's
+Item is picked, falling back to Common Issues for any item that
+hasn't been curated yet. The item-type picker in that Settings screen
+is fed from `config.itemTypes`, synced the same way as Floors — never
+hand-typed, so a fault list can't be filed against a name that
+doesn't match anything real.
 
 ### Keeping the model and the database in step
 
@@ -621,13 +629,14 @@ pick up.
 deployed app) that reads the model's own `assets.json` export and
 upserts it into Firestore, creating any Room it mentions that doesn't
 exist yet (same as adding one by hand in Settings) and keeping
-Settings → Floors in step with the model's own floor list, and reports
-any asset key that's in Firestore but no longer in the file (marked
-`active: false`, never deleted outright, so a job already logged
-against it keeps its link). It diffs against the current Firestore
-state in memory and only writes what actually changed, in batches —
-safe to re-run as often as needed; a rerun with nothing new costs two
-collection reads and no writes.
+Settings → Floors and the Item Faults picker's item-type list in step
+with the model's own floor/item lists, and reports any asset key
+that's in Firestore but no longer in the file (marked `active: false`,
+never deleted outright, so a job already logged against it keeps its
+link). It diffs against the current Firestore state in memory and
+only writes what actually changed, in batches — safe to re-run as
+often as needed; a rerun with nothing new costs two collection reads
+and no writes.
 
 **One-time setup:**
 1. Firebase console → ⚙ Project settings → Service accounts →

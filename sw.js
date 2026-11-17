@@ -2,7 +2,7 @@
 // version.json — app.js polls version.json to detect a stale build and
 // prompt a reload; this cache name is what actually makes the new files
 // take effect once that reload happens.
-const CACHE_NAME = 'maintenance-tracker-0.1.60';
+const CACHE_NAME = 'maintenance-tracker-0.1.61';
 // style.css/app.js/db.js carry a ?v= cache-busting query string in
 // index.html (see reloadForUpdate() in app.js for why) — kept identical
 // here so install-time pre-caching matches what the page actually
@@ -10,9 +10,9 @@ const CACHE_NAME = 'maintenance-tracker-0.1.60';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=0.1.60',
-  './app.js?v=0.1.60',
-  './db.js?v=0.1.60',
+  './style.css?v=0.1.61',
+  './app.js?v=0.1.61',
+  './db.js?v=0.1.61',
   './firebase-config.js',
   './manifest.webmanifest',
   './icon-192.png',

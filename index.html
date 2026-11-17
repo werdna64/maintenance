@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#233047">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=0.1.60">
+<link rel="stylesheet" href="style.css?v=0.1.61">
 </head>
 <body>
 
@@ -619,6 +619,34 @@
   </div>
 </div>
 
+<!-- Common Issues above is the generic fallback. This is the same idea
+     but scoped per item type (TV, AC unit, ...), synced from the 3D
+     model's own register (config.itemTypes) so the picker always
+     matches a real item - never typed by hand. Quick Pick in the job
+     sheets uses these once a specific Item is selected, falling back
+     to Common Issues when that item has none defined yet. -->
+<div class="sheet-backdrop" id="settingsItemFaultsBackdrop">
+  <div class="sheet">
+    <h2>Item Faults</h2>
+    <div class="field">
+      <label>Item type</label>
+      <select id="s_itemFaultType">
+        <option value="">Select an item…</option>
+      </select>
+    </div>
+    <div class="tag-list" id="itemFaultTagList"></div>
+    <div class="row2">
+      <div class="field" style="margin-bottom:0;">
+        <input id="s_newItemFault" type="text" placeholder="e.g. No signal / Remote missing / Won't turn on">
+      </div>
+      <button class="btn btn-primary" id="addItemFaultBtn" style="flex:0 0 auto; padding:11px 16px;">Add</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="closeSettingsItemFaultsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-backdrop" id="settingsDepartmentsBackdrop">
   <div class="sheet">
     <h2>Departments</h2>
@@ -856,8 +884,13 @@
         visible anywhere in the app yet.</li>
         <li>⚙ <strong>Settings</strong> is its own tile screen — Site
         name, Floors (synced from the 3D model, plus any you add by hand), Common Issues (quick-pick
-        shortcuts), Departments (who a job can be "Reported by"), Walk
-        Faults (the walk checklist), and Rooms. Tap a tile to open that
+        shortcuts for a job with no specific Item), Item Faults (the
+        same idea but per item type — TV, AC unit, etc., also synced
+        from the model — shown in Quick Pick instead of Common Issues
+        once a job's Item is picked, so the list only shows faults
+        that actually make sense for that thing), Departments (who a
+        job can be "Reported by"), Walk Faults (the walk checklist),
+        and Rooms. Tap a tile to open that
         section; Close on it goes back to the Settings tiles, not out
         of Settings entirely.</li>
         <li>Roles and PINs are set up separately via the Firebase
@@ -957,7 +990,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="db.js?v=0.1.60"></script>
-<script src="app.js?v=0.1.60"></script>
+<script src="db.js?v=0.1.61"></script>
+<script src="app.js?v=0.1.61"></script>
 </body>
 </html>

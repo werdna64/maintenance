@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.60';
+const APP_VERSION = '0.1.61';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -407,8 +407,10 @@ function subscribeData(){
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
-    config = cfg || { siteName: "Maintenance Tracker", siteCode: "JOB", floors: [], commonIssues: [], departments: [], walkFaults: [] };
+    config = cfg || { siteName: "Maintenance Tracker", siteCode: "JOB", floors: [], itemTypes: [], itemFaults: {}, commonIssues: [], departments: [], walkFaults: [] };
     if(!Array.isArray(config.floors)) config.floors = [];
+    if(!Array.isArray(config.itemTypes)) config.itemTypes = [];
+    if(!config.itemFaults || typeof config.itemFaults !== 'object') config.itemFaults = {};
     if(!config.commonIssues) config.commonIssues = [];
     // Departments, walk faults and the site code get a sensible starter
     // value the first time this config doc is ever seen missing them —
@@ -500,13 +502,42 @@ function renderAreaSelects(){
   if(names.includes(currentWalkFaultArea)) el('s_newWalkFaultArea').value = currentWalkFaultArea;
 }
 
-function renderIssuePresetSelects(){
-  const sorted = [...(config.commonIssues||[])].sort((a,b)=> a.localeCompare(b));
-  const options = `<option value="">Other (type your own)…</option>` +
+// Quick Pick is scoped to whichever Item is currently selected —
+// config.itemFaults[name] if that item has faults of its own defined
+// yet in Settings -> Item Faults, falling back to the generic
+// config.commonIssues list otherwise (which covers every item that
+// hasn't been curated yet, and anything logged with no specific item
+// at all — Housekeeping's reports, walk findings, etc.).
+function itemFaultsFor(itemName){
+  const specific = itemName && (config.itemFaults||{})[itemName];
+  return (specific && specific.length) ? specific : (config.commonIssues||[]);
+}
+
+function populateIssuePresetSelect(selectId, itemName){
+  const sorted = [...itemFaultsFor(itemName)].sort((a,b)=> a.localeCompare(b));
+  const current = el(selectId).value;
+  el(selectId).innerHTML = `<option value="">Other (type your own)…</option>` +
     sorted.map(i=>`<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
-  el('f_issuePreset').innerHTML = options;
-  el('nj_issuePreset').innerHTML = options;
-  el('r_issuePreset').innerHTML = options;
+  if(sorted.includes(current)) el(selectId).value = current;
+}
+
+// A select's own currently-chosen option text is the item's name (see
+// populateAssetSelect) — "" whenever nothing specific is picked, which
+// correctly falls through to the generic list above.
+function selectedItemName(selectId){
+  const sel = el(selectId);
+  if(!sel || !sel.value) return '';
+  return sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '';
+}
+
+// Re-derives all three from whatever's currently selected in each
+// sheet — called once on config load, and again whenever config
+// itself changes (e.g. Maintenance edits an item's fault list in
+// Settings while someone else has a sheet open).
+function renderIssuePresetSelects(){
+  populateIssuePresetSelect('f_issuePreset', selectedItemName('f_asset'));
+  populateIssuePresetSelect('nj_issuePreset', njPendingAssetName);
+  populateIssuePresetSelect('r_issuePreset', selectedItemName('r_asset'));
 }
 
 function renderSourceSelect(){
@@ -549,12 +580,20 @@ function populateRoomSelect(selectId, areaId){
 // (e.g. a deep link's already-resolved asset, or a job being edited)
 // is selected once the real options are in, falling back to whatever
 // the field's own current value already is.
+// Maps each Item select to the Quick Pick select it should keep in
+// step — see populateIssuePresetSelect(). nj_asset's own counterpart
+// (nj_issuePreset) is driven by njPendingAssetName instead, further
+// down, since that also has to survive a deep link's "not in the
+// register" case where the select itself shows nothing picked.
+const ASSET_ISSUE_PRESET = { f_asset: 'f_issuePreset', r_asset: 'r_issuePreset' };
+
 let assetSelectRequestId = 0;
 async function populateAssetSelect(selectId, roomId, preferredKey){
   const room = el(roomId).value;
   const requestId = ++assetSelectRequestId;
   if(!room){
     el(selectId).innerHTML = `<option value="">Select a room first…</option>`;
+    if(ASSET_ISSUE_PRESET[selectId]) populateIssuePresetSelect(ASSET_ISSUE_PRESET[selectId], '');
     return;
   }
   const want = preferredKey !== undefined ? preferredKey : el(selectId).value;
@@ -570,6 +609,7 @@ async function populateAssetSelect(selectId, roomId, preferredKey){
   el(selectId).innerHTML = `<option value="">No specific item (optional)</option>` +
     items.map(a=>`<option value="${escapeHtml(a.assetKey)}">${escapeHtml(a.name)}</option>`).join('');
   if(items.some(a=>a.assetKey === want)) el(selectId).value = want;
+  if(ASSET_ISSUE_PRESET[selectId]) populateIssuePresetSelect(ASSET_ISSUE_PRESET[selectId], selectedItemName(selectId));
 }
 
 function renderRoomSelect(){
@@ -958,7 +998,7 @@ function openJobWizard(){
   populateRoomSelect('nj_room', 'nj_area');
   el('nj_asset').value = '';
   el('nj_source').value = currentUser.department || '';
-  el('nj_issuePreset').value = '';
+  populateIssuePresetSelect('nj_issuePreset', '');
   el('nj_issue').value = '';
   renderJobWizardStep();
   el('jobWizardBackdrop').classList.add('open');
@@ -1173,6 +1213,9 @@ function njAdvanceFromAsset(){
     njPendingAssetKey = null;
     njPendingAssetName = '';
   }
+  // njPendingAssetName is the authoritative source here (not the
+  // select's own value) precisely because of the unmatched case above.
+  populateIssuePresetSelect('nj_issuePreset', njPendingAssetName);
   njStep = 3;
   renderJobWizardStep();
 }
@@ -1395,8 +1438,7 @@ function openReportSheet(){
   el('r_area').value = '';
   populateRoomSelect('r_room', 'r_area');
   el('r_asset').value = '';
-  populateAssetSelect('r_asset', 'r_room');
-  el('r_issuePreset').value = '';
+  populateAssetSelect('r_asset', 'r_room'); // room is blank, so this also resets r_issuePreset to the generic list
   el('r_issue').value = '';
   el('reportBackdrop').classList.add('open');
 }
@@ -2533,6 +2575,9 @@ const SETTINGS_TILES = [
   { id: 'settingsCommonIssuesBackdrop', label: 'Common Issues',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>`,
     onOpen: renderCommonIssueTags },
+  { id: 'settingsItemFaultsBackdrop', label: 'Item Faults',
+    icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
+    onOpen: renderItemFaultsScreen },
   { id: 'settingsDepartmentsBackdrop', label: 'Departments',
     icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
     onOpen: renderDepartmentTags },
@@ -2597,6 +2642,55 @@ function renderCommonIssueTags(){
     });
     wrap.appendChild(tag);
   });
+}
+
+// Item type options come from config.itemTypes (synced from the 3D
+// model, same reasoning as the Floors picker) - never hand-typed, so
+// a fault list can't be filed against a name that doesn't match any
+// real item. Picking a type re-renders the tag list below it for
+// whichever faults are already defined against that exact name.
+function renderItemFaultsScreen(){
+  const select = el('s_itemFaultType');
+  const current = select.value;
+  const types = [...(config.itemTypes||[])].sort((a,b)=> a.localeCompare(b));
+  select.innerHTML = `<option value="">Select an item…</option>` +
+    types.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  if(types.includes(current)) select.value = current;
+  renderItemFaultTags();
+}
+
+function renderItemFaultTags(){
+  const wrap = el('itemFaultTagList');
+  wrap.innerHTML = '';
+  const itemType = el('s_itemFaultType').value;
+  if(!itemType) return;
+  const faults = ((config.itemFaults||{})[itemType] || []).slice().sort((a,b)=> a.localeCompare(b));
+  faults.forEach(f=>{
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `<span>${escapeHtml(f)}</span><button data-fault="${escapeHtml(f)}">×</button>`;
+    tag.querySelector('button').addEventListener('click', async ()=>{
+      config.itemFaults[itemType] = config.itemFaults[itemType].filter(x=>x!==f);
+      await DB.setConfig(config);
+      renderItemFaultTags();
+      toast('Fault removed');
+    });
+    wrap.appendChild(tag);
+  });
+}
+
+async function handleAddItemFault(){
+  const itemType = el('s_itemFaultType').value;
+  if(!itemType){ toast('Select an item type first'); return; }
+  const val = el('s_newItemFault').value.trim();
+  if(!val) return;
+  if(!config.itemFaults[itemType]) config.itemFaults[itemType] = [];
+  if(!config.itemFaults[itemType].includes(val)){
+    config.itemFaults[itemType] = [...config.itemFaults[itemType], val];
+    await DB.setConfig(config);
+    renderItemFaultTags();
+  }
+  el('s_newItemFault').value = '';
 }
 
 function renderDepartmentTags(){
@@ -2890,6 +2984,9 @@ on('closeSettingsAreasBtn', 'click', ()=> el('settingsAreasBackdrop').classList.
 
 on('closeSettingsCommonIssuesBtn', 'click', ()=> el('settingsCommonIssuesBackdrop').classList.remove('open'));
 
+on('closeSettingsItemFaultsBtn', 'click', ()=> el('settingsItemFaultsBackdrop').classList.remove('open'));
+on('s_itemFaultType', 'change', renderItemFaultTags);
+
 on('closeSettingsDepartmentsBtn', 'click', ()=> el('settingsDepartmentsBackdrop').classList.remove('open'));
 
 on('closeSettingsWalkFaultsBtn', 'click', ()=> el('settingsWalkFaultsBackdrop').classList.remove('open'));
@@ -2898,6 +2995,7 @@ on('closeSettingsRoomsBtn', 'click', ()=> el('settingsRoomsBackdrop').classList.
 
 on('addAreaBtn', 'click', handleAddArea);
 on('addCommonIssueBtn', 'click', handleAddCommonIssue);
+on('addItemFaultBtn', 'click', handleAddItemFault);
 on('addDepartmentBtn', 'click', handleAddDepartment);
 on('addWalkFaultBtn', 'click', handleAddWalkFault);
 on('addRoomBtn', 'click', handleAddRoom);

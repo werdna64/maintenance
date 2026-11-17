@@ -130,11 +130,13 @@ async function main(){
   const roomsByNumber = new Map(roomsSnap.docs.map(d => [roomKey(d.data().number, d.data().floorLevel), d.data()]));
   const config = configSnap.exists ? configSnap.data() : {};
   const existingFloors = Array.isArray(config.floors) ? config.floors : [];
+  const existingItemTypes = Array.isArray(config.itemTypes) ? config.itemTypes : [];
 
   console.log(`  ${existingAssetsByKey.size} existing assets, ${roomsByNumber.size} existing rooms`);
 
   const seenKeys = new Set();
   const seenFloors = new Map(); // level -> name
+  const seenItemTypes = new Set(); // item name, for config.itemTypes (so the Settings "Item faults" picker always matches a real type, never a hand-typed guess)
   const ops = [];
   let created = 0, updated = 0, unchanged = 0, skipped = 0;
   let roomsCreated = 0, roomsUpdated = 0;
@@ -148,6 +150,7 @@ async function main(){
     }
     seenKeys.add(assetKey);
     seenFloors.set(floorLevel, floorName);
+    seenItemTypes.add(name);
 
     const rKey = roomKey(room, floorLevel);
     const existingRoom = roomsByNumber.get(rKey);
@@ -198,10 +201,21 @@ async function main(){
   for(const [level, name] of seenFloors) mergedFloors.set(level, name);
   const newFloors = [...mergedFloors.entries()].map(([level, name]) => ({ level, name })).sort((a, b) => a.level - b.level);
   const floorsChanged = JSON.stringify(newFloors) !== JSON.stringify(existingFloors);
-  if(floorsChanged){
+  // Item types list in config, same reasoning as floors — it's what
+  // Settings -> Item Faults picks from, so it has to always match a
+  // real name from the model rather than something hand-typed that
+  // could silently never match any actual asset.
+  const mergedItemTypes = new Set([...existingItemTypes, ...seenItemTypes]);
+  const newItemTypes = [...mergedItemTypes].sort((a, b) => a.localeCompare(b));
+  const itemTypesChanged = JSON.stringify(newItemTypes) !== JSON.stringify(existingItemTypes);
+
+  const configUpdate = {};
+  if(floorsChanged) configUpdate.floors = newFloors;
+  if(itemTypesChanged) configUpdate.itemTypes = newItemTypes;
+  if(Object.keys(configUpdate).length){
     // update(), not set() — config/main also holds siteName, siteCode,
     // departments, modelUrl, etc. and must not be clobbered.
-    ops.push({ type: 'update', ref: db.collection('config').doc('main'), data: { floors: newFloors } });
+    ops.push({ type: 'update', ref: db.collection('config').doc('main'), data: configUpdate });
   }
 
   console.log(`Writing ${ops.length} change(s) in batches of up to 500...`);
@@ -211,6 +225,7 @@ async function main(){
   console.log(`Assets:  ${created} created, ${updated} updated, ${unchanged} unchanged, ${skipped} skipped (missing fields)`);
   console.log(`Rooms:   ${roomsCreated} created, ${roomsUpdated} updated`);
   console.log(`Floors:  ${floorsChanged ? 'updated (' + newFloors.length + ' total)' : 'unchanged (' + newFloors.length + ' total)'}`);
+  console.log(`Item types: ${itemTypesChanged ? 'updated (' + newItemTypes.length + ' total)' : 'unchanged (' + newItemTypes.length + ' total)'}`);
   if(staleKeys.length){
     console.log(`\nIn Firestore but not in this file (marked inactive, not deleted — ${deactivated} newly so):`);
     staleKeys.forEach(k => console.log(`  ${k}`));
