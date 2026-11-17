@@ -268,3 +268,16 @@ job documents, so issue text and staff names reach the model, not just
 a status colour. In practice the model is behind the same Cloudflare
 Access allow-list, so it is not a new exposure – but it is a choice,
 not an accident.
+
+### The embedded copy cannot do live colours (settled 17 Nov 2026)
+
+The model is also published as a Claude artifact, which is handy for a
+quick look on a phone, but that copy runs in a sandboxed frame. It
+cannot load the Firebase library from gstatic **and** cannot reach
+`firestore.googleapis.com` either – both were probed and both are
+blocked. So bundling the SDK into the file would not help, and is not
+worth the ~600 KB.
+
+Live job colours are a Cloudflare-site feature only. The embedded copy
+says so plainly in the Key panel rather than looking broken. Do not
+re-investigate this without re-running the probe first.
