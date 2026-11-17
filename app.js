@@ -4,7 +4,7 @@
 // Beta (others using it), 1.0.0+ = Release. APP_STAGE is the human label
 // shown alongside the number — bump it (and version.json's "stage") when
 // you actually move to the next phase, not on every release.
-const APP_VERSION = '0.1.59';
+const APP_VERSION = '0.1.60';
 const APP_STAGE = 'Pre-release';
 
 const STATUSES = ["Open","In Progress","Awaiting Parts","Done"];
@@ -20,7 +20,13 @@ function jobStatusLabel(status){
 
 let jobs = [];
 let rooms = [];      // { id, number, floorLevel, floorName }
-let assets = [];     // { assetKey, floorLevel, floorName, room, kind, zone, name, type, parentKey, active } — see README's "3D model integration"
+// Assets ({ assetKey, floorLevel, floorName, room, kind, zone, name,
+// type, parentKey, active } — see README's "3D model integration")
+// are deliberately NOT held in a global array here. The collection
+// runs into the tens of thousands of documents for a full hotel, and
+// a live listener on the whole thing re-reads all of them on every
+// client reconnect — see DB.getAssetByKey()/getAssetsForRoom() in
+// db.js, fetched on demand instead.
 let walks = [];       // completed Fire & Security Walk sessions
 let ppmTasks = [];    // planned preventative maintenance schedules
 let config = { siteName: "Maintenance Tracker", siteCode: "JOB", floors: [], commonIssues: [], departments: [], walkFaults: [] };
@@ -64,7 +70,7 @@ function canEditJobs(){
   return JOB_EDIT_ROLES.includes(currentRole);
 }
 
-let unsubJobs = null, unsubRooms = null, unsubAssets = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
+let unsubJobs = null, unsubRooms = null, unsubConfig = null, unsubLastSeen = null, unsubWalks = null, unsubPpmTasks = null;
 
 const el = id => document.getElementById(id);
 
@@ -253,17 +259,16 @@ async function handleLogin(){
 async function handleLogout(){
   if(unsubJobs) unsubJobs();
   if(unsubRooms) unsubRooms();
-  if(unsubAssets) unsubAssets();
   if(unsubConfig) unsubConfig();
   if(unsubLastSeen) unsubLastSeen();
   if(unsubWalks) unsubWalks();
   if(unsubPpmTasks) unsubPpmTasks();
-  unsubJobs = unsubRooms = unsubAssets = unsubConfig = unsubLastSeen = unsubWalks = unsubPpmTasks = null;
+  unsubJobs = unsubRooms = unsubConfig = unsubLastSeen = unsubWalks = unsubPpmTasks = null;
   lastSeenAt = null;
   lastAlertedTime = null; // a different person may sign in next on this device
   viewedJobIds = new Set();
   currentView = 'home';
-  configLoaded = roomsLoaded = assetsLoaded = false;
+  configLoaded = roomsLoaded = false;
   deepLinkApplied = false;
   clearWalkDraft(); // same reasoning — don't hand the next person on this device someone else's half-finished walk
   await DB.signOut();
@@ -387,18 +392,18 @@ function showView(view){
 // everything else operational — the login screen shows a generic name
 // rather than exposing the real site name (and areas/common issues) to
 // anyone who finds the public repo's Firebase project, unauthenticated.
-// Set once each of config/rooms/assets has had its first snapshot since
+// Set once each of config/rooms has had its first snapshot since
 // sign-in — the 3D-model deep link (see maybeApplyDeepLink() below)
-// needs all three loaded before it can resolve an asset key against a
-// real area/room, so it waits for this rather than firing on whichever
-// listener happens to come back first.
-let configLoaded = false, roomsLoaded = false, assetsLoaded = false;
+// needs both loaded before it can resolve a room against a real
+// floor, so it waits for this rather than firing on whichever listener
+// happens to come back first. Asset lookup itself is a one-off fetch
+// by key (see applyJobRequest()), not something to wait on here.
+let configLoaded = false, roomsLoaded = false;
 let deepLinkApplied = false;
 
 function subscribeData(){
   unsubJobs = DB.onJobsChange(list => { jobs = list; render(); renderNotifications(); });
   unsubRooms = DB.onRoomsChange(list => { rooms = list; roomsLoaded = true; renderAreaSelects(); renderRoomSelect(); render(); maybeApplyDeepLink(); maybeApplyPendingModelMessage(); });
-  unsubAssets = DB.onAssetsChange(list => { assets = list; assetsLoaded = true; maybeApplyDeepLink(); maybeApplyPendingModelMessage(); });
   unsubWalks = DB.onWalksChange(list => { walks = list; renderWalkHistory(); });
   unsubPpmTasks = DB.onPpmTasksChange(list => { ppmTasks = list; renderPpmList(); checkPpmDue(); });
   unsubConfig = DB.onConfigChange(cfg => {
@@ -533,17 +538,38 @@ function populateRoomSelect(selectId, areaId){
 // Scoped to whichever room is currently picked — lets staff tag a job
 // against an item already in the 3D model's register without having
 // gone through the model itself. "No specific item" is always first
-// and the default; a stale (inactive) asset is left out since there's
-// nothing to usefully log against it any more.
-function populateAssetSelect(selectId, roomId){
+// and the default. Fetched on demand (a handful of documents for one
+// room) rather than from a live whole-collection listener — see
+// DB.getAssetsForRoom()'s comment in db.js for why that matters once
+// the register runs into the thousands.
+// Fire-and-forget by every caller — the select shows "Loading…" then
+// fills in once the fetch resolves, same lazy-stream feel as the rest
+// of the wizard, rather than making every caller await a network
+// round trip before a step or sheet can even appear. preferredKey
+// (e.g. a deep link's already-resolved asset, or a job being edited)
+// is selected once the real options are in, falling back to whatever
+// the field's own current value already is.
+let assetSelectRequestId = 0;
+async function populateAssetSelect(selectId, roomId, preferredKey){
   const room = el(roomId).value;
-  const filtered = assets.filter(a => a.room === room && a.active !== false)
-    .sort((a,b)=> a.name.localeCompare(b.name));
-  const current = el(selectId).value;
-  el(selectId).innerHTML = room
-    ? `<option value="">No specific item (optional)</option>` + filtered.map(a=>`<option value="${escapeHtml(a.assetKey)}">${escapeHtml(a.name)}</option>`).join('')
-    : `<option value="">Select a room first…</option>`;
-  if(filtered.some(a=>a.assetKey === current)) el(selectId).value = current;
+  const requestId = ++assetSelectRequestId;
+  if(!room){
+    el(selectId).innerHTML = `<option value="">Select a room first…</option>`;
+    return;
+  }
+  const want = preferredKey !== undefined ? preferredKey : el(selectId).value;
+  el(selectId).innerHTML = `<option value="">Loading…</option>`;
+  let items;
+  try{
+    items = await DB.getAssetsForRoom(room);
+  }catch(e){
+    items = [];
+  }
+  if(requestId !== assetSelectRequestId) return; // a newer room change already superseded this fetch
+  items.sort((a,b)=> a.name.localeCompare(b.name));
+  el(selectId).innerHTML = `<option value="">No specific item (optional)</option>` +
+    items.map(a=>`<option value="${escapeHtml(a.assetKey)}">${escapeHtml(a.name)}</option>`).join('');
+  if(items.some(a=>a.assetKey === want)) el(selectId).value = want;
 }
 
 function renderRoomSelect(){
@@ -858,8 +884,7 @@ function openJobSheet(job){
   el('f_area').value = job ? roomFloor(job.room) : '';
   populateRoomSelect('f_room', 'f_area');
   if(job) el('f_room').value = job.room;
-  populateAssetSelect('f_asset', 'f_room');
-  el('f_asset').value = (job && job.assetKey) ? job.assetKey : '';
+  populateAssetSelect('f_asset', 'f_room', (job && job.assetKey) || '');
   el('f_issuePreset').value = '';
   el('f_issue').value = job ? (job.issue||'') : '';
   el('f_status').value = job ? job.status : 'Open';
@@ -965,7 +990,7 @@ const DEEP_LINK_SOURCE_MAP = { '3d-model': '3D Model' };
 // postMessage path (applyModelMessage, further down) — same fields,
 // same prefill/fallback logic, whichever way the model actually
 // delivered them.
-function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackName, sourceParam }){
+async function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackName, sourceParam }){
   if(!canEditJobs()){
     showView('jobs');
     toast("This account can't log jobs — ask Maintenance, Housekeeping or Management");
@@ -973,7 +998,10 @@ function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackNa
   }
   if(!assetKey && !fallbackName && !fallbackLocation) return;
 
-  const asset = assetKey ? assets.find(a => a.assetKey === assetKey) : null;
+  let asset = null;
+  if(assetKey){
+    try{ asset = await DB.getAssetByKey(assetKey); }catch(e){ asset = null; }
+  }
 
   showView('jobs');
   openJobWizard();
@@ -1016,7 +1044,7 @@ function applyJobRequest({ assetKey, fallbackFloor, fallbackLocation, fallbackNa
 
 function maybeApplyDeepLink(){
   if(deepLinkApplied) return;
-  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
+  if(!(configLoaded && roomsLoaded)) return;
   deepLinkApplied = true; // consumed at most once per sign-in, whatever the outcome
 
   const params = new URLSearchParams(location.search);
@@ -1045,9 +1073,9 @@ function maybeApplyDeepLink(){
 // reconnects, no pile of abandoned tabs. Trusted purely by origin,
 // matched against whatever's set in Settings -> Site -> 3D model link;
 // nothing is accepted if that's not configured. A message that arrives
-// before config/rooms/assets have loaded (e.g. the very first one,
-// right after this tab was opened) is held and applied once they have,
-// same as the URL path waits for the same three flags.
+// before config/rooms have loaded (e.g. the very first one, right
+// after this tab was opened) is held and applied once they have, same
+// as the URL path waits for the same two flags.
 let pendingModelMessage = null;
 
 function trustedModelOrigin(){
@@ -1067,7 +1095,7 @@ function applyModelMessage(data){
 
 function maybeApplyPendingModelMessage(){
   if(!pendingModelMessage) return;
-  if(!(configLoaded && roomsLoaded && assetsLoaded)) return;
+  if(!(configLoaded && roomsLoaded)) return;
   const data = pendingModelMessage;
   pendingModelMessage = null;
   applyModelMessage(data);
@@ -1077,7 +1105,7 @@ window.addEventListener('message', (event)=>{
   const trusted = trustedModelOrigin();
   if(!trusted || event.origin !== trusted) return;
   if(!event.data || event.data.type !== 'maintdb:logJob') return;
-  if(configLoaded && roomsLoaded && assetsLoaded){
+  if(configLoaded && roomsLoaded){
     applyModelMessage(event.data);
   } else {
     pendingModelMessage = event.data; // only the latest pending one matters
@@ -1120,10 +1148,10 @@ function njAdvanceFromArea(){
 
 function njAdvanceFromRoom(){
   if(!el('nj_room').value) return;
-  populateAssetSelect('nj_asset', 'nj_room');
   // A deep link may already have resolved a specific item — show it
-  // picked rather than blank, still changeable from here.
-  if(njPendingAssetKey) el('nj_asset').value = njPendingAssetKey;
+  // picked once the list loads, rather than blank, still changeable
+  // from here.
+  populateAssetSelect('nj_asset', 'nj_room', njPendingAssetKey || '');
   njStep = 2;
   renderJobWizardStep();
 }
@@ -1132,12 +1160,14 @@ function njAdvanceFromRoom(){
 // link would; leaving it blank keeps whatever a deep link already
 // resolved (including a deliberately "not in the register" match) so
 // landing on this step without touching it never throws that away.
+// The picked option's own text is the asset's name — no separate
+// lookup needed, since populateAssetSelect() already fetched it.
 function njAdvanceFromAsset(){
-  const picked = el('nj_asset').value;
+  const select = el('nj_asset');
+  const picked = select.value;
   if(picked){
-    const asset = assets.find(a=>a.assetKey===picked);
     njPendingAssetKey = picked;
-    njPendingAssetName = asset ? asset.name : '';
+    njPendingAssetName = select.selectedOptions[0] ? select.selectedOptions[0].textContent : '';
     njPendingAssetUnmatched = false;
   } else if(!njPendingAssetUnmatched){
     njPendingAssetKey = null;
@@ -1279,11 +1309,11 @@ async function handleSaveJob(){
   job.source = el('f_source').value || currentUser.department || 'Maintenance';
   job.dateClosed = (status === 'Done') ? (job.dateClosed || new Date().toISOString()) : '';
 
-  const pickedAssetKey = el('f_asset').value;
+  const fAssetSelect = el('f_asset');
+  const pickedAssetKey = fAssetSelect.value;
   if(pickedAssetKey){
-    const asset = assets.find(a=>a.assetKey===pickedAssetKey);
     job.assetKey = pickedAssetKey;
-    job.assetName = asset ? asset.name : '';
+    job.assetName = fAssetSelect.selectedOptions[0] ? fAssetSelect.selectedOptions[0].textContent : '';
     job.assetUnmatched = false;
   } else if(!job.assetUnmatched){
     // Leave a deep-link's "not in the register" tag alone unless the
@@ -1391,11 +1421,11 @@ async function handleSubmitReport(){
     dateLogged: new Date().toISOString(),
     dateClosed: ''
   };
-  const pickedAssetKey = el('r_asset').value;
+  const rAssetSelect = el('r_asset');
+  const pickedAssetKey = rAssetSelect.value;
   if(pickedAssetKey){
-    const asset = assets.find(a=>a.assetKey===pickedAssetKey);
     job.assetKey = pickedAssetKey;
-    job.assetName = asset ? asset.name : '';
+    job.assetName = rAssetSelect.selectedOptions[0] ? rAssetSelect.selectedOptions[0].textContent : '';
     job.assetUnmatched = false;
   }
   stampAudit(job, true);

@@ -130,15 +130,26 @@ const DB = {
     await firestore.collection('rooms').doc(id).delete();
   },
 
-  // ---- assets (realtime) ----
+  // ---- assets (on-demand, not a live listener) ----
   // Physical items below room level (a bedside lamp, a distribution
   // board...), keyed by a stable assetKey shared with the 3D hotel
   // model — see README's "3D model integration" section. Populated by
   // the scripts/sync-assets.js script, not edited from inside the app.
-  onAssetsChange(callback) {
-    return firestore.collection('assets').onSnapshot((snap) => {
-      callback(snap.docs.map(d => d.data()));
-    });
+  // Deliberately fetched on demand rather than subscribed to as a
+  // whole collection: this collection runs into the tens of thousands
+  // of documents for a full hotel, and a blanket onSnapshot() re-reads
+  // all of them on every client reconnect — see git history for the
+  // quota outage that caused.
+  async getAssetByKey(assetKey) {
+    const doc = await firestore.collection('assets').doc(assetKey).get();
+    return doc.exists ? doc.data() : null;
+  },
+  async getAssetsForRoom(room) {
+    // A single equality filter needs no composite index; filtering out
+    // inactive ones is cheap client-side since one room is at most a
+    // few dozen documents, never worth a second index for.
+    const snap = await firestore.collection('assets').where('room', '==', room).get();
+    return snap.docs.map(d => d.data()).filter(a => a.active !== false);
   },
 
   // ---- walk history (realtime) ----
