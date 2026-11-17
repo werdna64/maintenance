@@ -205,3 +205,66 @@ keep it in sync – client-side on every save, the same way
 app has deliberately avoided so far) – worth it only once this first
 version proves the idea is worth having.
 
+
+## 10. Showing open jobs in the model – rooms first (room layer BUILT)
+
+Section 9 covers *getting* the data. This covers showing it, and the
+ordering matters more than it looks.
+
+**Rooms before items.** Only a job raised through the model's own
+deep-link/message flow carries an `assetKey` (section 9's "real
+limitation"). Every job, however it was raised, carries a **room**. So a
+room-level roll-up works against the jobs already in MaintDB today,
+while item-level marking would show almost nothing until people have
+been using the model to raise jobs for a while. Build the room layer
+first; the item layer fills in on its own as asset keys accumulate.
+
+**Built, model side:** a fourth **Open jobs** option on the model's
+existing *Colour by* control, alongside Use / Fire zone / AC unit.
+Picking it lazily loads the Firebase compat SDK (same 10.13.0 this app
+uses), signs in anonymously, subscribes to the whole `jobs` collection
+and colours each room by the **worst status currently open in it** –
+Open red, Awaiting Parts purple, In Progress amber, nothing neutral
+grey. Rooms are matched by room number, or by room name for the spaces
+that have no number (plant rooms, stores, the suites). Tapping a room
+also adds a line to its info panel: how many are open, the worst
+status, and the age of the oldest. The Key panel opens itself in this
+mode and reports the connection state, so a failure reads as "could
+not reach the tracker" rather than a building with no jobs in it.
+
+Nothing on the MaintDB side is needed for that except **enabling
+Anonymous Authentication** in the Firebase console, exactly as section
+9 describes. Until that toggle is on, the mode will say the tracker
+refused the connection.
+
+Deliberately avoided: recolouring the *items* inside a room close-up.
+The model already uses an emissive green tint to mean "you tapped
+this", and tinting a light fitting red makes it harder to tell what the
+object actually is. When the item layer comes, it should be a small
+floating marker above the item, coloured by status, leaving the object
+itself alone.
+
+**Not built, and what each needs:**
+
+- **Per-item job lists in the asset sheet.** The asset sheet is already
+  the per-entity surface and already carries "Log a job", so the open
+  jobs for that item belong directly above that button – job number,
+  status, a few words of the issue, age. A separate panel would
+  duplicate it. *Needs on the MaintDB side:* a deep link to an
+  **existing** job. Today there is only `?new=1&asset=…`; making those
+  rows links needs something like `?job=<id>` that opens that job.
+- **A floor work list.** "What's outstanding on 5" is a different
+  question from "what's wrong with this light" – planning a round
+  rather than inspecting one thing – so it does earn its own panel,
+  driven off the same snapshot. Worth adding once the room layer has
+  proved itself in use.
+- **Closing the asset-key gap.** An Asset picker on MaintDB's own job
+  sheet, so staff can tag an item without going through the model.
+  Still the real follow-up decision flagged in section 9, and the thing
+  that decides whether the item layer is ever worth much.
+
+One thing to be deliberate about, same as section 9: this reads whole
+job documents, so issue text and staff names reach the model, not just
+a status colour. In practice the model is behind the same Cloudflare
+Access allow-list, so it is not a new exposure – but it is a choice,
+not an accident.
