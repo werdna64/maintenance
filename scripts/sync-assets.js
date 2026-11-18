@@ -205,9 +205,15 @@ async function main(){
   // Item types list in config, same reasoning as floors — it's what
   // Settings -> Item Faults picks from, so it has to always match a
   // real name from the model rather than something hand-typed that
-  // could silently never match any actual asset.
-  const mergedItemTypes = new Set([...existingItemTypes, ...seenItemTypes]);
-  const newItemTypes = [...mergedItemTypes].sort((a, b) => a.localeCompare(b));
+  // could silently never match any actual asset. Unlike floors, this
+  // REPLACES rather than merges with what's there already: seenItemTypes
+  // already covers every name in this run's file (the loop above adds to
+  // it unconditionally, not just for changed items), and item names do
+  // legitimately get renamed (e.g. "WC" -> "Toilet") - merging would
+  // leave the old name sitting in the picker forever with nothing left
+  // using it. Any fault list already defined against a name that drops
+  // out isn't deleted, just not offered until that name reappears.
+  const newItemTypes = [...seenItemTypes].sort((a, b) => a.localeCompare(b));
   const itemTypesChanged = JSON.stringify(newItemTypes) !== JSON.stringify(existingItemTypes);
 
   const configUpdate = {};
