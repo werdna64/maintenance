@@ -1,6 +1,6 @@
 # 3D Building Model – context for MaintDB
 
-_Last updated: 12 Nov 2026_
+_Last updated: 18 Nov 2026_
 
 What the 3D building model is, where it lives, and how it connects to this app. MaintDB is a static PWA on GitHub Pages with **Firebase Auth + Firestore** (no SQL, no server of its own). The app-side integration is already built – see README → "3D model integration". This file covers the model side and what is still to do.
 
@@ -37,11 +37,12 @@ An interactive three.js model of **Leonardo Hotel Sheffield**: 12 levels (Baseme
 | Piece | MaintDB (this repo) | 3D model (`themodel`) |
 | --- | --- | --- |
 | Deep link `?new=1&asset=…&floor&location&name&source=3d-model` with fallback | **Done** (app.js deep-link handler) | **Done** — sends `new, site, floor, location, name, asset, source`; `asset` is now the unique `assetKey`, `name` the display label |
-| `assets` collection keyed by `assetKey` | **Done** (rules + `scripts/sync-assets.js`) | **Done** — every tappable item carries `userData.assetKey` (`assetKeyFor()` in `src/viewer.html`); **Export assets.json** link in the side panel (also `window.exportAssets()`) produces the file for `scripts/sync-assets.js`. Verified in a real headless-Chromium run: 11,356 unique keys, 259 distinct bedrooms, zero collisions. One open item: `FLOOR_TO_AREA`'s floor→Area-name mapping is a reasonable guess, not yet checked against MaintDB's actual Settings → Areas list (see question 1 below) |
+| `assets` collection keyed by `assetKey` | **Done** (rules + `scripts/sync-assets.js`) | **Done** — every tappable item carries `userData.assetKey` (`assetKeyFor()` in `src/viewer.html`); **Export assets.json** link in the side panel (also `window.exportAssets()`) produces the file for `scripts/sync-assets.js`. Verified in a real headless-Chromium run (13,080 unique keys after the upstream columns/paving work, zero collisions). `FLOOR_TO_AREA`'s guess-table is gone — MaintDB now stores the model's own `floorLevel`/`floorName`/`kind`/`zone` directly (see section 5), so there's nothing left to check for a mismatch |
 | Job numbers `SHF-000123` | **Done** (`counters/jobs` transaction; prefix in Settings → Site) | n/a |
 | "3D Model" tile on Home | **Done** – needs the URL pasted into Settings → Site → 3D model link | Live at `https://themodel-b4w.pages.dev` |
 | Circuits / breakers, supply tracing | Not started | Board charts exist in the model; register in Claude Sheets |
-| Live open-job status in the model | Spec written (section 9) – needs the model to read Firestore directly | Not started |
+| Live open-job status in the model | **Done** — room-level "Open jobs" colour-by mode, reading Firestore directly (section 10) | n/a |
+| Asset picker in MaintDB's own job sheet | **Done** — New Job wizard, the single-page job sheet, and Report a problem all have an optional **Item** field scoped to the selected room, fed from the synced `assets` collection (see README's "3D model integration"). This is what section 9/10 below call "closing the asset-key gap" — a job logged the normal way (not via the model's deep link) can now carry an `assetKey` too, so the live-status view isn't limited to model-originated jobs only | n/a |
 
 ## 5. Contract the model must meet (from README)
 
@@ -59,16 +60,18 @@ https://werdna64.github.io/maintenance/?new=1
 **`assets.json`** (model export → `node scripts/sync-assets.js path/to/assets.json`): a JSON array of
 
 ```json
-{ "assetKey": "SHF.5.R505.BED.LAMP-L", "area": "5th Floor", "room": "505", "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+{ "assetKey": "SHF.5.R505.BED.LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
 ```
 
 - `assetKey` format: `SHF.<FLOOR>.<LOCATION>[.<ZONE>].<ITEM>[-N]`, upper case, dot-separated, never reused. Floors `B`, `LG`, `G`, `1`–`9`, `ROOF`. Examples: `SHF.5.R505.BATH.EXTRACT`, `SHF.LG.SWITCH-ROOM.DB-HF`.
-- `area` and `room` **must match MaintDB's existing Area and Room names exactly** (⚙ Settings → Areas / Rooms), otherwise the sync script creates new ones. The model needs that list before it can export – see open questions.
+- **`floorLevel`/`floorName` are the model's own values, straight from each floor object** (`f.level`/`f.name` in `src/viewer.html`) — MaintDB no longer keeps a separately hand-typed "Area" list to match against. The old `FLOOR_TO_AREA` guess-table is gone entirely. `scripts/sync-assets.js` keeps MaintDB's Settings → Floors and the Item Faults picker's item-type list (`config.itemTypes`, from the distinct `name` values seen) in step automatically — nothing to reconcile by hand before a sync.
+- `kind` is the model's own space kind (`room`/`corridor`/`plant`/`store`/...), `zone` its zone/wing grouping where it has one. Neither is used by the app yet, stored for later.
+- `room` still has to be a stable string per physical space/room (its number, or a name for non-numbered spaces) — that part is unchanged.
 - `active` is managed by the sync script; the model does not send it.
 
 ## 6. Open questions
 
-1. **Now the one actually blocking a real sync.** What are MaintDB's exact Area names and Room naming (e.g. `5th Floor` / `505`, and for non-bedrooms like the switch room or bar)? Check ⚙ Settings → Areas / Rooms in the live app and compare against `themodel`'s `FLOOR_TO_AREA` map (`src/viewer.html`) and each space's `s.no`/`s.name` – update whichever side doesn't match before running `scripts/sync-assets.js` for real (it'll create new Areas/Rooms for anything that doesn't match exactly, which is recoverable but messy to clean up after the fact).
+1. ~~Area/Room naming matching exactly~~ — resolved; see `floorLevel`/`floorName` above. This is no longer a thing to check before syncing.
 2. Should breakers become assets (so a job can be logged against "DB-HF way 10 L2")? If so, `parentKey` = the board's key. Circuit tracing beyond that is a separate future data model.
 3. Which department should "3D Model" jobs map to – add a **3D Model** department in Settings, or leave blank?
 
@@ -128,8 +131,8 @@ discarding something you expected to keep.
 
 ## 8. Next steps
 
-- **Model side — done:** `assetKey` on every tappable item, `asset=<key>`/`name=<label>` both sent in the Log-a-job link, and an **Export assets.json** link in the side panel. Still open: reuse one tab via a named `window.open` target and/or `postMessage` (section 7) – the MaintDB side of that is already live, the model side isn't wired up yet.
-- **MaintDB side – do next:** paste `https://themodel-b4w.pages.dev` into Settings → Site → 3D model link if not already done. Before running a real sync: resolve open question 1 above (Area/Room names matching exactly), export `assets.json` from the model's side panel, then `node scripts/sync-assets.js path/to/assets.json` and check the drift report.
+- **Model side — done:** `assetKey` on every tappable item, `asset=<key>`/`name=<label>` both sent in the Log-a-job link, an **Export assets.json** link in the side panel, and the room-level "Open jobs" live status view (section 10). Still open: reuse one tab via a named `window.open` target and/or `postMessage` (section 7) – the MaintDB side of that is already live, the model side isn't wired up yet.
+- **MaintDB side — done:** the Area/Floor schema mismatch is resolved (section 5), the sync script is diff-based and safe to re-run, and the Asset picker closing the "assetKey gap" (sections 9/10) is built. Next real decision on this side is section 10's item-level work (per-item job lists, a floor work list) now that the gap it was blocked on is closed.
 
 ## 9. Live status – the model reads Firestore directly (spec, not built)
 
@@ -178,18 +181,19 @@ firebase.auth().signInAnonymously().then(() => {
 });
 ```
 
-**The real limitation, worth knowing before building this:** a job
-only carries `assetKey` if it was created *through* the model's own
-deep-link/message flow (section 7). A job logged normally in MaintDB –
-Housekeeping's "Report a problem", a Fire & Security Walk finding, a
-PPM job, or Maintenance just picking a room in the ordinary New Job
-wizard without going via the model – has no `assetKey`, so it won't
-turn that item red even though it's genuinely the same physical thing.
-Day one, this will under-report: most jobs won't have come through the
-model yet. Closing that gap needs an "Asset" picker added to MaintDB's
-own job sheet (so staff can tag one manually even when not using the
-model) – not built, a real follow-up decision, not something to assume
-into this spec.
+**The limitation this used to have, now closed (18 Nov 2026):** a job
+only ever carried `assetKey` if it was created *through* the model's
+own deep-link/message flow (section 7) — a job logged normally in
+MaintDB (Housekeeping's "Report a problem", a Fire & Security Walk
+finding, a PPM job, or the ordinary New Job wizard without going via
+the model) had no `assetKey`, so it couldn't turn that item red even
+though it was genuinely the same physical thing, and day one this
+would have badly under-reported. MaintDB's job sheets (New Job wizard,
+the single-page edit sheet, and Report a problem) now all have an
+optional **Item** picker scoped to the selected room, fed from the
+synced `assets` collection — picking one tags the job with that
+`assetKey` the same as the model's own deep link would. So any job,
+however it was raised, can now carry one.
 
 **Also worth being deliberate about:** this exposes full job documents
 to the model (issue text, notes, staff names, department – not just a
@@ -258,10 +262,14 @@ itself alone.
   rather than inspecting one thing – so it does earn its own panel,
   driven off the same snapshot. Worth adding once the room layer has
   proved itself in use.
-- **Closing the asset-key gap.** An Asset picker on MaintDB's own job
-  sheet, so staff can tag an item without going through the model.
-  Still the real follow-up decision flagged in section 9, and the thing
-  that decides whether the item layer is ever worth much.
+
+**The asset-key gap flagged above is now closed (18 Nov 2026)** — see
+section 9's update. Jobs logged the normal way in MaintDB can carry an
+`assetKey` now, not just model-originated ones, so the item layer
+(the per-item job lists bullet above) is worth taking more seriously
+than when this section was first written — it should get real data
+sooner than "once people have been using the model to raise jobs for
+a while" originally assumed.
 
 One thing to be deliberate about, same as section 9: this reads whole
 job documents, so issue text and staff names reach the model, not just
