@@ -658,6 +658,46 @@ Expects a JSON array, one object per asset:
 ]
 ```
 
+### Local emulator (dev/testing only)
+
+The real deployed app and the real `sync-assets.js` always talk to the
+real Firebase project — this is purely a throwaway local sandbox for
+iterating on schema changes or admin scripts without spending any of
+the real project's quota or touching real data. Nothing here changes
+what staff actually use.
+
+**One-time setup:** `npm install` (pulls in `firebase-tools` alongside
+`firebase-admin`) and a Java runtime (the Firestore emulator runs on a
+local JVM).
+
+**Each time:**
+```
+npm run emulators
+```
+Starts Firestore + Auth emulators on `localhost:8080`/`localhost:9099`,
+with a web UI at `http://127.0.0.1:4000`. Data is exported to
+`./emulator-data` on exit and re-imported on the next start (gitignored
+— it's local test data, not something this public repo should carry).
+
+**Pointing things at it:**
+- `scripts/sync-assets.js` — Google's client libraries auto-detect the
+  standard `FIRESTORE_EMULATOR_HOST` env var, no code change needed:
+  ```
+  FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-assets.js path/to/assets.json
+  ```
+  No `serviceAccountKey.json` needed either — the emulator doesn't
+  check credentials.
+- **The app itself** — `db.js` auto-connects to the emulators whenever
+  it's served from `localhost`/`127.0.0.1` (never for the real
+  deployed site, which is never served from there). Serve the files
+  locally and open it in a browser:
+  ```
+  npm run serve
+  ```
+  then `http://localhost:5000`. The console logs a visible warning
+  when it's running against the emulator rather than the real project,
+  so it's never ambiguous which one you're looking at.
+
 ### Job numbers
 
 Every job now gets a short reference number (e.g. `SHF-000123`) the

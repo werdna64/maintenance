@@ -31,6 +31,16 @@ firebase.initializeApp(window.FIREBASE_CONFIG);
 const auth = firebase.auth();
 const firestore = firebase.firestore();
 
+// Dev/testing only — never true for the real deployed app, which is
+// never served from localhost. Point at a local `firebase emulators:start`
+// instead of the real project; no quota, no risk to real data. See
+// README's "Local emulator (dev/testing only)" section for setup.
+if(location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
+  auth.useEmulator('http://localhost:9099', { disableWarnings: true });
+  firestore.useEmulator('localhost', 8080);
+  console.warn('Using local Firebase emulators, not the real project.');
+}
+
 firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {
   // Multiple tabs without synchronizeTabs support, or a browser that
   // doesn't support persistence (e.g. private browsing) — the app still

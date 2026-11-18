@@ -79,12 +79,13 @@ function sameAsset(existing, incoming){
 }
 
 async function commitInChunks(db, ops){
-  // ops: array of {type:'set'|'update', ref, data}
+  // ops: array of {type:'set'|'update'|'merge', ref, data}
   let committed = 0;
   for(let i = 0; i < ops.length; i += 500){
     const batch = db.batch();
     for(const op of ops.slice(i, i + 500)){
       if(op.type === 'set') batch.set(op.ref, op.data);
+      else if(op.type === 'merge') batch.set(op.ref, op.data, { merge: true });
       else batch.update(op.ref, op.data);
     }
     await batch.commit();
@@ -213,9 +214,13 @@ async function main(){
   if(floorsChanged) configUpdate.floors = newFloors;
   if(itemTypesChanged) configUpdate.itemTypes = newItemTypes;
   if(Object.keys(configUpdate).length){
-    // update(), not set() — config/main also holds siteName, siteCode,
-    // departments, modelUrl, etc. and must not be clobbered.
-    ops.push({ type: 'update', ref: db.collection('config').doc('main'), data: configUpdate });
+    // merge, not a plain set() — config/main also holds siteName,
+    // siteCode, departments, modelUrl, etc. and must not be clobbered.
+    // Not update() either: that throws if config/main doesn't exist
+    // yet at all (a brand new project, or a freshly started local
+    // emulator) - merge:true creates it in that case instead of
+    // requiring a separate seed step first.
+    ops.push({ type: 'merge', ref: db.collection('config').doc('main'), data: configUpdate });
   }
 
   console.log(`Writing ${ops.length} change(s) in batches of up to 500...`);

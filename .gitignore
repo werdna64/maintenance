@@ -13,3 +13,13 @@ serviceAccountKey.json
 # public repo (see CLAUDE.md). Passed to scripts/sync-assets.js locally
 # only.
 assets.json
+
+# Local Firebase emulator (dev/testing only — see README). Exported
+# data is a local snapshot of test data, not something to share via
+# this public repo; the debug logs are just noise.
+emulator-data/
+firestore-debug.log
+ui-debug.log
+database-debug.log
+pubsub-debug.log
+firebase-debug.log
