@@ -683,10 +683,19 @@ with a web UI at `http://127.0.0.1:4000`. Data is exported to
 - `scripts/sync-assets.js` — Google's client libraries auto-detect the
   standard `FIRESTORE_EMULATOR_HOST` env var, no code change needed:
   ```
-  FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-assets.js path/to/assets.json
+  npm run sync-assets:emulator -- path/to/assets.json
   ```
   No `serviceAccountKey.json` needed either — the emulator doesn't
-  check credentials.
+  check credentials. **Always run this first** after any change on the
+  model side (a rename, a restructure, a new item type) — check the
+  output looks right, *then* run the exact same sync for real:
+  ```
+  npm run sync-assets:live -- path/to/assets.json
+  ```
+  Same file, same script — the only difference is which project it
+  talks to. Skipping the emulator step is how a bad sync reaches real
+  data, and how Firestore's daily quota gets burned re-testing against
+  the real project instead of a free local one.
 - **The app itself** — `db.js` auto-connects to the emulators whenever
   it's served from `localhost`/`127.0.0.1` (never for the real
   deployed site, which is never served from there). Serve the files

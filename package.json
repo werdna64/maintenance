@@ -3,7 +3,8 @@
   "private": true,
   "description": "Admin-only tooling for the Maintenance Tracker PWA — not part of the deployed app itself (see README's \"3D model integration\" section).",
   "scripts": {
-    "sync-assets": "node scripts/sync-assets.js",
+    "sync-assets:emulator": "FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-assets.js",
+    "sync-assets:live": "node scripts/sync-assets.js",
     "emulators": "firebase emulators:start --export-on-exit=./emulator-data --import=./emulator-data",
     "serve": "npx serve -l 5000 ."
   },
