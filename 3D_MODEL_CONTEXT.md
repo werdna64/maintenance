@@ -54,14 +54,42 @@ https://werdna64.github.io/maintenance/?new=1
   &source=3d-model
   &floor=Fifth
   &location=Room 505
-  &name=Left bedside lamp
+  &name=Bedside lamp (left)
 ```
 
 **`assets.json`** (model export → `node scripts/sync-assets.js path/to/assets.json`): a JSON array of
 
 ```json
-{ "assetKey": "SHF.5.R505.BED.LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+{ "assetKey": "SHF.5.R505.BEDSIDE-LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Bedside lamp (left)", "type": "lamp", "parentKey": null }
 ```
+
+**Item naming rules** (model side, agreed 18 Nov 2026). MaintDB builds
+its Item Faults picker from the distinct `name` values in `assets.json`,
+so every spelling variant the model invents becomes another entry in
+that picker. Three rules keep it honest:
+
+1. **One word per fixture.** A basin is a `Basin` whether it is wall
+   hung or sat on a vanity; a socket is a `Socket` wherever it is. If
+   the qualifier only records which *room type* you are in, drop it --
+   the model already shows you which room you are looking at.
+2. **A qualifier exists only to tell two of the same thing apart in the
+   same space.** `Window (Duke Lane side)` and `Window (Eyre Street
+   side)` earn their brackets because the corner rooms have both; every
+   other room just has a `Window`. Qualifiers are lower case.
+3. **Qualifiers are absolute, never relative.** Naming something by what
+   happens to be next to it multiplies with the room handing. Bedside
+   items are `(left)` and `(right)`, **as seen standing at the foot of
+   the bed looking at the headboard** -- stated on the asset sheet in
+   the model, because a convention nobody can see is not a convention.
+   Note that **left is not a synonym for window side**: the hotel's
+   mirrored room pairs mean the left lamp is the window-side one in
+   roughly half the rooms and the bathroom-side one in the rest.
+
+Vocabulary is shared with MaintDB's own common-issue wording -- that is
+why the model says `Toilet` and not `WC`. If one side renames a fixture,
+the other should follow, and `scripts/sync-assets.js` prunes
+`config.itemTypes` so the old spelling drops out of the picker on the
+next sync.
 
 - `assetKey` format: `SHF.<FLOOR>.<LOCATION>[.<ZONE>].<ITEM>[-N]`, upper case, dot-separated, never reused. Floors `B`, `LG`, `G`, `1`–`9`, `ROOF`. Examples: `SHF.5.R505.BATH.EXTRACT`, `SHF.LG.SWITCH-ROOM.DB-HF`.
 - **`floorLevel`/`floorName` are the model's own values, straight from each floor object** (`f.level`/`f.name` in `src/viewer.html`) — MaintDB no longer keeps a separately hand-typed "Area" list to match against. The old `FLOOR_TO_AREA` guess-table is gone entirely. `scripts/sync-assets.js` keeps MaintDB's Settings → Floors and the Item Faults picker's item-type list (`config.itemTypes`, from the distinct `name` values seen) in step automatically — nothing to reconcile by hand before a sync.

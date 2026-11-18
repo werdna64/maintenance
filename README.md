@@ -542,7 +542,7 @@ https://werdna64.github.io/maintenance/?new=1
   &source=3d-model
   &floor=Fifth
   &location=Room 505
-  &name=Left bedside lamp
+  &name=Bedside lamp (left)
 ```
 
 - `new=1` — triggers the New Job wizard.
@@ -654,7 +654,7 @@ node scripts/sync-assets.js path/to/assets.json
 Expects a JSON array, one object per asset:
 ```json
 [
-  { "assetKey": "SHF.5.R505.BED.LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Left bedside lamp", "type": "lamp", "parentKey": null }
+  { "assetKey": "SHF.5.R505.BEDSIDE-LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Bedside lamp (left)", "type": "lamp", "parentKey": null }
 ]
 ```
 
