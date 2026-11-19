@@ -37,21 +37,46 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function uid(prefix){
   return prefix + Date.now() + Math.random().toString(36).slice(2, 7);
 }
 
 function parseArgs(argv){
-  const args = { assetsPath: null, serviceAccountPath: null };
+  const args = { assetsPath: null, serviceAccountPath: null, force: false };
   for(let i = 0; i < argv.length; i++){
     if(argv[i] === '--service-account'){
       args.serviceAccountPath = argv[++i];
+    } else if(argv[i] === '--force'){
+      args.force = true;
     } else if(!args.assetsPath){
       args.assetsPath = argv[i];
     }
   }
   return args;
+}
+
+// Tracks the hash of the last assets.json actually synced to each target
+// (live/emulator are different databases, so each gets its own record),
+// so a rerun against the exact same file can skip Firestore entirely
+// instead of paying for a full collection read just to discover there's
+// nothing to do - the single biggest cost in this script once the
+// collection is large, and the thing that burns through daily quota
+// fastest on a day with several syncs. Local-only, gitignored: this
+// tracks "did the input change since this machine last synced it", not
+// real Firestore state, so --force exists for when something else
+// changed the database directly and the cache would otherwise be wrong.
+const STATE_PATH = path.join(__dirname, '..', '.sync-assets-state.json');
+function loadState(){
+  if(!fs.existsSync(STATE_PATH)) return {};
+  try{ return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')); }catch(e){ return {}; }
+}
+function saveState(state){
+  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+}
+function hashFile(filePath){
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
 function loadJson(filePath, label){
@@ -95,10 +120,26 @@ async function commitInChunks(db, ops){
 }
 
 async function main(){
-  const { assetsPath, serviceAccountPath } = parseArgs(process.argv.slice(2));
+  const { assetsPath, serviceAccountPath, force } = parseArgs(process.argv.slice(2));
   if(!assetsPath){
-    console.error('Usage: node scripts/sync-assets.js <assets.json> [--service-account <key.json>]');
+    console.error('Usage: node scripts/sync-assets.js <assets.json> [--service-account <key.json>] [--force]');
     process.exit(1);
+  }
+  if(!fs.existsSync(assetsPath)){
+    console.error(`Assets file not found: ${assetsPath}`);
+    process.exit(1);
+  }
+
+  // live/emulator are different databases and need their own record -
+  // syncing the same file to both is normal (test, then go live) and
+  // each leg should run once, not get skipped because the other already
+  // ran. See STATE_PATH's own comment for why this check exists at all.
+  const target = process.env.FIRESTORE_EMULATOR_HOST ? 'emulator' : 'live';
+  const fileHash = hashFile(assetsPath);
+  const state = loadState();
+  if(!force && state[target] === fileHash){
+    console.log(`${assetsPath} is byte-identical to what was last synced to ${target} - nothing to do (use --force to sync anyway).`);
+    return;
   }
 
   const keyPath = serviceAccountPath || path.join(__dirname, '..', 'serviceAccountKey.json');
@@ -243,6 +284,9 @@ async function main(){
   } else {
     console.log('\nNo stale asset keys — model and database match.');
   }
+
+  state[target] = fileHash;
+  saveState(state);
 }
 
 main().catch(e => {

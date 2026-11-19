@@ -14,6 +14,11 @@ serviceAccountKey.json
 # only.
 assets.json
 
+# Tracks the hash of the last assets.json actually synced to live/the
+# emulator, so a rerun against an unchanged file can skip Firestore
+# entirely. Per-machine state, not something to share via this repo.
+.sync-assets-state.json
+
 # Local Firebase emulator (dev/testing only — see README). Exported
 # data is a local snapshot of test data, not something to share via
 # this public repo; the debug logs are just noise.
