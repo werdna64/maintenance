@@ -1,0 +1,20 @@
+# Run from the repo root: docker compose -f docker/dev-emulator/docker-compose.yml up -d
+#
+# Bound to 127.0.0.1 only — the emulator is never reachable directly from
+# the LAN or the internet, only via cloudflared running on this same
+# machine (see ../../cloudflared/config.yml.example). Data persists in
+# ./data across restarts (gitignored — it's test data, not something to
+# version).
+services:
+  dev-emulator:
+    build:
+      context: ../..
+      dockerfile: docker/dev-emulator/Dockerfile
+    container_name: maintdb-dev-emulator
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080" # Firestore
+      - "127.0.0.1:9099:9099" # Auth
+      - "127.0.0.1:4000:4000" # Emulator UI — keep this one off the tunnel, see README
+    volumes:
+      - ./data:/data

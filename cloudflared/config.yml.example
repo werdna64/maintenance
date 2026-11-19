@@ -1,0 +1,31 @@
+# Copy to cloudflared/config.yml (gitignored — never commit the real one)
+# after running, once per tunnel:
+#
+#   cloudflared tunnel login
+#   cloudflared tunnel create maintdb-dev
+#   cloudflared tunnel route dns maintdb-dev maintdb-dev-db.yourdomain.com
+#   cloudflared tunnel route dns maintdb-dev maintdb-dev-auth.yourdomain.com
+#
+# `tunnel create` prints a tunnel ID and writes a credentials JSON under
+# ~/.cloudflared/ — put that ID below and point credentials-file at it.
+#
+# Then in the Cloudflare dashboard, add an Access application (Zero Trust ->
+# Access -> Applications) covering both hostnames, same pattern as the
+# themodel repo's viewer, restricted to the people who should be able to
+# reach dev data at all. This is the thing that actually gates "accessible
+# to all authenticated users" — the emulator's own Auth has no real
+# sign-in, so Access is the real access control here.
+#
+# Run with: cloudflared tunnel run maintdb-dev
+# (or as a systemd service / its own container once you're happy with it —
+# see README's "Shared dev backend" section for both options.)
+
+tunnel: <tunnel-id-from-tunnel-create>
+credentials-file: /root/.cloudflared/<tunnel-id>.json
+
+ingress:
+  - hostname: maintdb-dev-db.yourdomain.com
+    service: http://localhost:8080
+  - hostname: maintdb-dev-auth.yourdomain.com
+    service: http://localhost:9099
+  - service: http_status:404

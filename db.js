@@ -39,6 +39,50 @@ if(location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
   auth.useEmulator('http://localhost:9099', { disableWarnings: true });
   firestore.useEmulator('localhost', 8080);
   console.warn('Using local Firebase emulators, not the real project.');
+} else if(connectToDevBackendIfRequested()){
+  console.warn('Using the shared dev backend, not the real project.');
+}
+
+// Lets a tester point the real, production-served app at the shared dev
+// emulator (see README's "Shared dev backend" section) instead of live
+// Firebase — for testing against real-looking data without touching
+// production or its quota. Deliberately NOT a free-form host: only ever
+// connects to the fixed DEV_BACKEND hostnames below, never to whatever a
+// URL happens to contain, since this file also handles real sign-in.
+// `?devBackend=1` turns it on and remembers the choice; `?devBackend=0`
+// turns it back off. Returns true if the dev backend is now in use.
+function connectToDevBackendIfRequested(){
+  const DEV_BACKEND = {
+    // Filled in once the Cloudflare Tunnel hostnames exist (see README).
+    // Left null, the whole feature is inert even if someone adds
+    // ?devBackend=1 to the URL.
+    firestoreHost: null, // e.g. 'maintdb-dev-db.example.com'
+    authUrl: null,        // e.g. 'https://maintdb-dev-auth.example.com'
+  };
+  const STORAGE_KEY = 'maintdb_devBackend';
+  const requested = new URLSearchParams(location.search).get('devBackend');
+  if(requested === '0'){
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+    return false;
+  }
+  const wantsIt = requested === '1' || (() => {
+    try{ return localStorage.getItem(STORAGE_KEY) === '1'; }catch(e){ return false; }
+  })();
+  if(!wantsIt || !DEV_BACKEND.firestoreHost || !DEV_BACKEND.authUrl) return false;
+  auth.useEmulator(DEV_BACKEND.authUrl, { disableWarnings: true });
+  firestore.useEmulator(DEV_BACKEND.firestoreHost, 443);
+  try{ localStorage.setItem(STORAGE_KEY, '1'); }catch(e){}
+  showDevBackendBanner();
+  return true;
+}
+
+function showDevBackendBanner(){
+  const banner = document.createElement('div');
+  banner.textContent = 'DEV BACKEND — test data, not the live hotel system';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+    + 'background:#b45309;color:#fff;font:600 12px system-ui,sans-serif;'
+    + 'text-align:center;padding:4px 8px;';
+  document.addEventListener('DOMContentLoaded', () => document.body.prepend(banner));
 }
 
 firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {

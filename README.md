@@ -707,6 +707,112 @@ with a web UI at `http://127.0.0.1:4000`. Data is exported to
   when it's running against the emulator rather than the real project,
   so it's never ambiguous which one you're looking at.
 
+### Shared dev backend (optional, home-LAN hosted)
+
+The local emulator above is single-person and ad hoc — it only exists
+while someone runs `npm run emulators` on their own machine. This is the
+persistent version: the same Firestore + Auth emulator, left running on a
+machine on your home LAN and reachable over the internet through a
+Cloudflare Tunnel, so other testers can point the real app at a shared,
+realistic set of dev data without each running their own emulator — and
+without any of it touching live Firebase or its quota.
+
+**What it's for, and what it isn't.** This is a dev/test backend, not a
+step towards self-hosting production. The Firestore emulator isn't durable
+storage (no real backups, single machine, dev-grade by design) — live
+Firestore stays the production backend regardless of how useful this gets.
+If this ever becomes something IT department kit should run instead of
+your home LAN, that's a separate decision made with IT at the time, not
+something this sets in motion on its own.
+
+**How it's laid out:**
+```
+            (browser, anywhere)
+                   |  https://maintdb-dev-db.yourdomain.com
+                   |  https://maintdb-dev-auth.yourdomain.com
+                   v
+        Cloudflare Access  (gate: who can reach it at all)
+                   |
+                   v
+        Cloudflare Tunnel (cloudflared, runs on your home LAN box)
+                   |  localhost only
+                   v
+        Firestore + Auth emulator (Docker, same box)
+                   |
+                   v
+        ./data  (persisted across restarts)
+```
+Two separate gates, doing two separate jobs: Cloudflare Access decides who
+can reach the tunnel at all (real identity check — email/SSO, same pattern
+as the `themodel` repo's viewer); the emulator's own "Auth" behind that is
+fake/local-only and never represents a real sign-in. Nothing here opens a
+port on your router — `cloudflared` makes an outbound connection to
+Cloudflare, so the emulator is never directly reachable except through
+that tunnel.
+
+**Setting it up (on the home LAN box, not this repo's CI):**
+1. Install Docker, then from the repo root:
+   ```
+   docker compose -f docker/dev-emulator/docker-compose.yml up -d --build
+   ```
+   Builds `docker/dev-emulator/Dockerfile` (Node + a JRE + `firebase-tools`,
+   running the same `firebase.json`/`firestore.rules` as everywhere else)
+   and starts it bound to `127.0.0.1` only. Data persists in
+   `docker/dev-emulator/data/` (gitignored) across restarts.
+2. Install `cloudflared`, then:
+   ```
+   cloudflared tunnel login
+   cloudflared tunnel create maintdb-dev
+   cloudflared tunnel route dns maintdb-dev maintdb-dev-db.yourdomain.com
+   cloudflared tunnel route dns maintdb-dev maintdb-dev-auth.yourdomain.com
+   ```
+   Copy `cloudflared/config.yml.example` to `cloudflared/config.yml`
+   (gitignored — it has your tunnel ID and credentials path), fill in
+   your real hostnames, then `cloudflared tunnel run maintdb-dev` (or set
+   it up as a service so it survives reboots).
+3. In the Cloudflare dashboard, Zero Trust → Access → add an Access
+   application covering both hostnames, restricted to whoever should be
+   able to reach dev data. **Deliberately leave the Emulator UI
+   (`localhost:4000`) off the tunnel** — it has no access control of its
+   own and lets anyone browse/edit all dev data directly; use it locally
+   on the box itself if you need to poke at the data.
+4. In `db.js`, fill in the two hostnames in `DEV_BACKEND` (currently
+   `null`, which keeps the whole feature inert) and redeploy.
+
+**Using it:** open the real app and add `?devBackend=1` to the URL once —
+it connects to the dev backend, shows a visible orange banner so it's
+never mistaken for production, and remembers the choice (`localStorage`)
+across reloads. `?devBackend=0` switches back to live.
+
+**Seeding it with data, and the live-quota question.** Two different
+kinds of data, two different costs:
+- **Floors/rooms/assets** come from the model's `assets.json`, not from
+  live Firestore at all — run the normal sync *on the home LAN box*,
+  pointed at its own local emulator port, never through the tunnel:
+  ```
+  npm run sync-assets:emulator -- path/to/assets.json
+  ```
+  Zero live reads, same as the local-emulator workflow above.
+- **Jobs** only exist in live Firestore, so making dev data look realistic
+  means pulling some real ones in — the one place this setup can cost live
+  quota, so it's a separate, manual, capped pair of scripts rather than
+  anything automatic:
+  ```
+  npm run jobs-sample:export -- --limit 200    # run anywhere with the service account key — costs 200 live reads
+  npm run jobs-sample:import -- jobs-sample.json   # run on the dev box, writes to its emulator only
+  ```
+  `import-jobs-sample.js` refuses to run unless `FIRESTORE_EMULATOR_HOST`
+  is set, so there's no path from "refresh the dev data" to "overwrite a
+  real job". **Never put `jobs-sample:export` on a schedule or in CI** —
+  treat every run as a deliberate, bounded spend against the day's
+  50,000-read budget, and only run it when dev data has actually gone
+  stale enough to matter (rarely, in practice).
+
+Day-to-day testing against the tunnel — however much of it, however many
+testers — never touches live Firestore or its quota at all, since the dev
+backend is a completely separate emulated project with no relationship to
+the real one beyond sharing the same `firestore.rules`/schema.
+
 ### Job numbers
 
 Every job now gets a short reference number (e.g. `SHF-000123`) the

@@ -6,6 +6,8 @@
     "sync-assets:emulator": "FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-assets.js",
     "sync-assets:live": "node scripts/sync-assets.js",
     "emulators": "firebase emulators:start --export-on-exit=./emulator-data --import=./emulator-data",
+    "jobs-sample:export": "node scripts/export-jobs-sample.js",
+    "jobs-sample:import": "FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/import-jobs-sample.js",
     "serve": "npx serve -l 5000 ."
   },
   "dependencies": {

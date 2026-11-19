@@ -28,3 +28,14 @@ ui-debug.log
 database-debug.log
 pubsub-debug.log
 firebase-debug.log
+
+# Shared dev backend (see README's "Shared dev backend" section) — the
+# persistent emulator's data volume, the Cloudflare Tunnel's real config
+# (has a credentials-file path and tunnel ID, generated per-machine by
+# `cloudflared tunnel create`), and any job-sample export used to seed it.
+# None of this is live data, a secret to hand out, or something to
+# version — the .example file is the one that's committed.
+docker/dev-emulator/data/
+cloudflared/config.yml
+cloudflared/*.json
+jobs-sample.json
