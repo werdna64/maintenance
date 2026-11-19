@@ -39,8 +39,10 @@ if(location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
   auth.useEmulator('http://localhost:9099', { disableWarnings: true });
   firestore.useEmulator('localhost', 8080);
   console.warn('Using local Firebase emulators, not the real project.');
-} else if(connectToDevBackendIfRequested()){
-  console.warn('Using the shared dev backend, not the real project.');
+} else{
+  const devState = connectToDevBackendIfRequested();
+  if(devState === 'on') console.warn('Using the shared dev backend, not the real project.');
+  else if(devState === 'unconfigured') console.warn('Dev backend requested but DEV_BACKEND has no hostnames — staying on the real project (LIVE).');
 }
 
 // Lets a tester point the real, production-served app at the shared dev
@@ -50,12 +52,23 @@ if(location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
 // connects to the fixed DEV_BACKEND hostnames below, never to whatever a
 // URL happens to contain, since this file also handles real sign-in.
 // `?devBackend=1` turns it on and remembers the choice; `?devBackend=0`
-// turns it back off. Returns true if the dev backend is now in use.
+// turns it back off.
+//
+// Three states, not two (mirrors the model's src/viewer.html — see
+// 3D_MODEL_CONTEXT.md, "Three states, not two"), because the dangerous
+// failure is a silent one: asking for the dev backend and not getting it
+// used to look identical to never asking — add ?devBackend=1, see no bar,
+// assume it's working, and go on writing real jobs to live. 'unconfigured'
+// exists so that can never happen quietly, including for a browser that
+// still has the flag stored in localStorage from when DEV_BACKEND *was*
+// filled in — reverting the hostnames here must still warn on every load
+// after that, not fall back to live with nothing said. This matters more
+// here than in the model: the model only reads, db.js writes jobs.
 function connectToDevBackendIfRequested(){
   const DEV_BACKEND = {
     // Filled in once the Cloudflare Tunnel hostnames exist (see README).
     // Left null, the whole feature is inert even if someone adds
-    // ?devBackend=1 to the URL.
+    // ?devBackend=1 to the URL — they just get the 'unconfigured' warning.
     firestoreHost: null, // e.g. 'maintdb-dev-db.example.com'
     authUrl: null,        // e.g. 'https://maintdb-dev-auth.example.com'
   };
@@ -63,25 +76,40 @@ function connectToDevBackendIfRequested(){
   const requested = new URLSearchParams(location.search).get('devBackend');
   if(requested === '0'){
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
-    return false;
+    return 'off';
   }
   const wantsIt = requested === '1' || (() => {
     try{ return localStorage.getItem(STORAGE_KEY) === '1'; }catch(e){ return false; }
   })();
-  if(!wantsIt || !DEV_BACKEND.firestoreHost || !DEV_BACKEND.authUrl) return false;
+  if(!wantsIt) return 'off';
+  if(!DEV_BACKEND.firestoreHost || !DEV_BACKEND.authUrl){
+    // Never written to localStorage here — a request that can't be
+    // honoured is never remembered, so fixing DEV_BACKEND later or just
+    // reloading without the param both recover cleanly. A flag already
+    // sitting in localStorage from an earlier working config is left
+    // alone rather than cleared, so the warning keeps firing on every
+    // load until it's actually resolved one way or the other.
+    showDevBackendBanner('unconfigured');
+    return 'unconfigured';
+  }
   auth.useEmulator(DEV_BACKEND.authUrl, { disableWarnings: true });
   firestore.useEmulator(DEV_BACKEND.firestoreHost, 443);
   try{ localStorage.setItem(STORAGE_KEY, '1'); }catch(e){}
-  showDevBackendBanner();
-  return true;
+  showDevBackendBanner('on');
+  return 'on';
 }
 
-function showDevBackendBanner(){
+function showDevBackendBanner(state){
   const banner = document.createElement('div');
-  banner.textContent = 'DEV BACKEND — test data, not the live hotel system';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
-    + 'background:#b45309;color:#fff;font:600 12px system-ui,sans-serif;'
-    + 'text-align:center;padding:4px 8px;';
+  if(state === 'unconfigured'){
+    banner.textContent = 'DEV BACKEND REQUESTED BUT NOT CONFIGURED — this is LIVE data';
+    banner.style.background = '#b91c1c';
+  } else {
+    banner.textContent = 'DEV BACKEND — test data, not the live hotel system';
+    banner.style.background = '#b45309';
+  }
+  banner.style.cssText += 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+    + 'color:#fff;font:600 12px system-ui,sans-serif;text-align:center;padding:4px 8px;';
   document.addEventListener('DOMContentLoaded', () => document.body.prepend(banner));
 }
 

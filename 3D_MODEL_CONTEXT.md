@@ -79,25 +79,26 @@ happily colour rooms from live jobs while the app showed test ones.
 Each shows a bar when it is on; the model's says "(model)" so they can
 be told apart on one screen.
 
-**Three states, not two — please mirror this in `db.js` (19 Nov 2026).**
+**Three states, not two (19 Nov 2026, mirrored in `db.js` the same day).**
 The original switch failed silently: asking for the dev backend and not
 getting it looked exactly like not asking for it. That is the dangerous
 direction — you add `?devBackend=1`, see no bar, assume it worked, and
 are reading and writing **live hotel data** while believing it is test
-data. The model now distinguishes:
+data. Both the model and `db.js` now distinguish:
 
 | State | When | Bar |
 |---|---|---|
 | `off` | not asked for | none |
 | `unconfigured` | asked for, but `DEV_BACKEND` has no hostnames | red `#b91c1c` — "DEV BACKEND REQUESTED BUT NOT CONFIGURED — this is LIVE data" |
-| `on` | asked for and connected | amber `#b45309` — "DEV BACKEND (model) — test data, not the live hotel system" |
+| `on` | asked for and connected | amber `#b45309` — "DEV BACKEND (model) — test data, not the live hotel system" (`db.js`'s bar omits "(model)") |
 
 Only `on` calls `useEmulator` or puts `devBackend=1` into a job link, and
-a request that cannot be honoured is never written to localStorage —
-that part matches `db.js` as it already stands. The case worth testing
-is a browser that still has the flag stored from when it *was*
-configured, after the hostnames are reverted: it must warn in red and
-fall back to live, not quietly carry on.
+a request that cannot be honoured is never written to localStorage. The
+case that mattered most — a browser that still has the flag stored from
+when it *was* configured, after the hostnames are reverted — is covered
+in `db.js` too: tested against all three states plus that exact stale-flag
+case with a mocked environment (see the MaintDB session's commit), each
+warns correctly and stays on live rather than quietly connecting nowhere.
 
 This matters more in MaintDB than in the model. The model only reads;
 `db.js` writes jobs, and a job written to live while you believed you
