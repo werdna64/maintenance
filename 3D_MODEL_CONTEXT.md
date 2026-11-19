@@ -63,6 +63,33 @@ https://werdna64.github.io/maintenance/?new=1
 { "assetKey": "SHF.5.R505.BEDSIDE-LAMP-L", "floorLevel": 5, "floorName": "5th Floor", "room": "505", "kind": "room", "zone": null, "name": "Bedside lamp (left)", "type": "lamp", "parentKey": null }
 ```
 
+**Dev backend.** The model mirrors MaintDB's `?devBackend=1` switch from
+`db.js` exactly: same query parameter, same `maintdb_devBackend`
+localStorage key, same rule that it only ever connects to hardcoded
+hosts and never to anything carried in a URL. Both are inert until the
+Cloudflare Tunnel hostnames are filled in, and **the hostnames have to
+be filled in on both sides**.
+
+localStorage is per-origin, and the model (Cloudflare) and MaintDB
+(GitHub Pages) are different origins, so the sticky flag cannot be
+shared. Instead the model appends `devBackend=1` to every job link it
+builds. Turning dev mode on in the model and opening one job carries
+MaintDB across too, and it sticks there. Without that, the model would
+happily colour rooms from live jobs while the app showed test ones.
+Each shows a bar when it is on; the model's says "(model)" so they can
+be told apart on one screen.
+
+**Breakers are not assets, by decision (19 Nov 2026).** Nobody raises a
+maintenance job against a breaker -- the fault is in what it feeds --
+and twenty ways per board would flood the Item Faults picker with
+entries no one would ever choose. What is useful is the *relationship*,
+so the model keeps a `SUPPLY` table read in both directions: an item's
+sheet shows "Supplied from [board] - way N", and that board's chart
+shows "serves [item]" on the matching way, each jumping to the other.
+Jobs that genuinely are board-level (a missing way label, an EICR
+remedial) go against the board, which is already an asset. Per-circuit
+testing belongs in the circuit register, not here.
+
 **Item naming rules** (model side, agreed 18 Nov 2026). MaintDB builds
 its Item Faults picker from the distinct `name` values in `assets.json`,
 so every spelling variant the model invents becomes another entry in
